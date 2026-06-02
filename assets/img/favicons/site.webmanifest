@@ -1,0 +1,21 @@
+{
+  "name": "Aleksey Vlasenko",
+  "short_name": "Aleksey Vlasenko",
+  "icons": [
+    {
+      "src": "/assets/img/favicons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/img/favicons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#1f6feb",
+  "background_color": "#1f6feb",
+  "display": "standalone"
+}
