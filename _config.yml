@@ -1,0 +1,28 @@
+title: Aleksey Vlasenko's blog
+author: Aleksey Vlasenko
+description: >-
+  Notes on machine learning, TensorFlow, BigQuery, F#, .NET and developer tooling.
+url: "https://vlasenkoalexey.github.io"
+baseurl: ""
+
+theme: minima
+
+# minima 2.5 (the version pinned by github-pages) renders these in the footer
+github_username: vlasenkoalexey
+
+header_pages:
+  - about.md
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Posts were migrated from Blogger; keep clean dated permalinks.
+permalink: /:year/:month/:title/
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor
