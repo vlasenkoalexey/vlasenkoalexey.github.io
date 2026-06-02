@@ -14,7 +14,7 @@ timezone: America/Los_Angeles
 
 title: Aleksey Vlasenko # the main title
 
-tagline: Notes on machine learning, TensorFlow, BigQuery, F# and developer tooling. # subtitle
+tagline: What I cannot code, I do not understand. # subtitle
 
 description: >- # used by seo meta and the atom feed
   Notes on machine learning, TensorFlow, BigQuery, F#, .NET and developer tooling.
