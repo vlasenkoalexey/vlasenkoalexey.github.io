@@ -10,7 +10,7 @@ original_url: "https://alekseyv-dev.blogspot.com/2020/03/profiling-tensorflow-v1
 Recently I had to debug a performance issue in TensorFlow V1.x input pipeline. TensorFlow V2.x has a nice tensorboard profiler plugin which is super handy for such situations. Unfortunately it doesn't work for TensorFlow V1.x, and I wasn't able to find a lot of information on debugging performance in TensorFlow V1.x. So I'll share my findings, since a lot of people are still on TF1.x, and this information might be useful. Most of TF1.x code is built using Estimators API. For profiling Estimators there is a tf.estimator.ProfilerHook, which can save traces every N steps or N seconds. It is pretty easy to use:
 Sample showing how to train models in TensorFlow 1.14/1.15 using estimator API
 
-```
+```python
 def train_estimator_linear(model_dir):
   global ARGS
 
@@ -52,7 +52,7 @@ And this only works for Esitmator API.
 
 Luckily TensorFlow has a lower level API to profile single operations.
 
-```
+```python
 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
 run_metadata = tf.RunMetadata()
 sess.run(<values_you_want_to_execute>, options=run_options, run_metadata=run_metadata)
@@ -76,7 +76,7 @@ Let's see how to use both approaches.
 
 Internally traces look like this:
 
-```
+```json
 {
     "traceEvents": [
         // ....
@@ -122,7 +122,7 @@ under "traceEvents" and dump into one file under "traceEvents".
 
 JSON manipulations in Python are pretty straightforward. Here is a sample:
 
-```
+```python
  run_options = RunOptions(trace_level=RunOptions.FULL_TRACE)
  run_metadata= RunMetadata()
  ops_metadata = []
@@ -163,7 +163,7 @@ Turnes out that importing JSON into BigQuery is very straingforward. It is not e
 schema, BigQuery is clever enought to infer it on it's own. One catch is that each entry has to be
 on a separate line. Here is a function to import data:
 
-```
+```python
 def import_json_file(dataset_id, table_id, file_name):
     client = bigquery.Client(project=PROJECT_ID)
 
@@ -184,7 +184,7 @@ def import_json_file(dataset_id, table_id, file_name):
 Since timeline files have everything nested under "traceEvents", imported table is not
 very conventient to work with. It would be nice to flatten it:
 
-```
+```sql
 %%bigquery --project alekseyv-scalableai-dev --verbose --destination_table traces.tf115_processed
 
 SELECT
@@ -208,7 +208,7 @@ table, see --destination\_table traces.tf115\_processed paramter.
 Note that currenly --destination\_table is not yet available in Colab by default.
 In order to enable it you'd need to update BigQuery pip package:
 
-```
+```console
 !pip install --upgrade google-cloud-bigquery
 ```
 
@@ -217,7 +217,7 @@ I really missed this feature in %%bigquery magic, so decided to add it myself re
 Once data is in appropriate format, it is possible to analyze it using full power of SQL.
 For example:
 
-```
+```sql
 %%bigquery --project alekseyv-scalableai-dev tf115_processed
 
 SELECT

@@ -21,7 +21,7 @@ Then everything I expected to do it taking walkthrough and integrating it with F
 First I had to find a way to access those FSI APIs. FsiLanguageService is registered as a Visual Studio extensibility service. This is our entry point, everything else can be solved using Reflection. It is obviously a hack and it'll likely break if FSI sources are changed. But it will work, and telling from other's code this is the way extensibility is done for Visual Studio.  
 In order to access internal properties and fields using C# dynamic keyword we can use [ExposedObject](http://igoro.com/archive/use-c-dynamic-typing-to-conveniently-access-internals-of-an-object/). Also I had to modify it a bit because it doesn't support fields declared in nested classes. It is a bit ugly, but does its job:  
 
-```
+```csharp
 public FsiLanguageServiceHelper()
 {
     fsiAssembly = Assembly.Load("FSharp.VS.FSI, Version=12.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a");
@@ -83,7 +83,7 @@ FSI interactive binary is designed to be run in 2 modes - as a console applicati
 For me it meant that I need to run some code within FSI process, and that I need to establish some intra-process communication. First I tried to use Remoting since it is already used by FSI server, and it almost worked. Once in a while it failed with some cryptic errors which have no sense at all. So I replaced it by WCF service operating over NamedPipes, and it worked much better. Here is my service definition:  
   
 
-```
+```fsharp
 [<Serializable>]
 [<ServiceContract>]
 type AutocompleteService = 
@@ -101,7 +101,7 @@ I didn't come up with anything better than adding reference to my dll and then e
 Implementing basic auto-completion provider wasn't hard. I used reflection APIs to iterate over type system, and a hack similar to the one used in FsEye in order to get access to variable names: <https://github.com/SwensenSoftware/fseye/blob/63266a99e59a5eb70173869a05fe9a3bc4b96466/FsEye/Fsi/SessionQueries.fs>. Basically variables of FSI sessions are stored in dynamic assembly and names start with FSI\_:  
   
 
-```
+```fsharp
 let getVariableNames(fsiAssembly:Assembly) =
     fsiAssembly.GetTypes()//FSI types have the name pattern FSI_####, where #### is the order in which they were created
     |> Seq.filter (fun ty -> ty.Name.StartsWith("FSI_"))
@@ -117,7 +117,7 @@ I also added namespaces opened in F# by default- Microsoft.FSharp.Collections an
 Autocomplete popup just rejected processing arrow down button. It is critical for navigation buttons to work for autocomplete popup, so I couldn't leave this issue unsolved. One of the biggest problems with Visual Studio extensibility is lack of good documentation. So the best source of information for me were GitHub sources for similar projects, and debugger. It turned out that CommandHandlers for key events in Visual Studio are organized in a hierarchical manner. If top level CommandHandler processes key event, and marks event as processed, there is nothing we can do on lower level CommandHanlder. In case with FSI window, [fsiToolWindow](https://github.com/Microsoft/visualfsharp/blob/275b832e9dd1a4bd64ed3accd218384b901be1d2/vsintegration/src/vs/FsPkgs/FSharp.VS.FSI/fsiSessionToolWindow.fs#L730) processing arrow up/down keypress events for navigating through history, and therefore intercepted those events. And in fact when cursor was not set to the bottom line of FSI those events worked just fine since FSI doesn't process them for navigating history. I guess I tried every reasonable approach to make it work, but it didn't help. So the only way for me to solve it was to make FSI think that it should not iterate over history. Luckily there is a way:  
   
 
-```
+```csharp
 private void SetFsiToolWindowCompletionSetVisibilty(bool displayed)
 {
     if (fsiToolWindow != null)
@@ -149,7 +149,7 @@ I tried hard to find a way to find a reference to the class or variable of the r
 Here is how code for executing autocomplete API on a running FSI process end up looking:  
   
 
-```
+```fsharp
 let getCompletionsFromFsiSession(prefix:String) : seq<String> = 
     try
         let fsiEvaluationSession = System.AppDomain.CurrentDomain 

@@ -21,7 +21,7 @@ Luckily there is a great blog post describing how to integrate F# into Windows S
   
 So, eventually I decided to keep ViewModel in C# and only port library responsible for HTML parsing and data processing to F#. First I had to figure out how to use FSharp.Data APIs from F# interactive. I installed nuget package, and started exploring.  
 
-```
+```console
 Install-Package FSharp.Data
 ```
 
@@ -31,22 +31,22 @@ net40 is used for native .NET applications, and portable-net40+sl5+wp8+win8 for
 packages\FSharp.Data.2.1.0\lib\net40\FSharp.Data.dll in F# interactive and add reference to packages\FSharp.Data.2.1.0\lib\portable-net40+sl5+wp8+win8\FSharp.Data.dll in Windows Store project.  
   
 
-```
- 1: #r @"C:\Projects\FsharpWindowsStorePrototype\packages\FSharp.Data.2.1.0\lib\net40\FSharp.Data.dll"
- 2: 
- 3: open System
- 4: open FSharp.Data
- 5: 
- 6: type SampleHtmlProvider = HtmlProvider<"http://www.weather.com/weather/today/l/98033:4:US">
- 7: let data = SampleHtmlProvider.Load("http://www.weather.com/weather/today/l/98033:4:US")
- 8: let info = data.Tables.Table1.Rows.[0].Column1
- 9: 
-10: open System
-11: open FSharp.Data
-12: 
-13: type SampleHtmlProvider = HtmlProvider<"http://www.weather.com/weather/today/l/98033:4:US">
-14: let data = SampleHtmlProvider.Load("http://www.weather.com/weather/today/l/98033:4:US")
-15: let info = data.Tables.Table1.Rows.[0].Column1
+```fsharp
+#r @"C:\Projects\FsharpWindowsStorePrototype\packages\FSharp.Data.2.1.0\lib\net40\FSharp.Data.dll"
+
+open System
+open FSharp.Data
+
+type SampleHtmlProvider = HtmlProvider<"http://www.weather.com/weather/today/l/98033:4:US">
+let data = SampleHtmlProvider.Load("http://www.weather.com/weather/today/l/98033:4:US")
+let info = data.Tables.Table1.Rows.[0].Column1
+
+open System
+open FSharp.Data
+
+type SampleHtmlProvider = HtmlProvider<"http://www.weather.com/weather/today/l/98033:4:US">
+let data = SampleHtmlProvider.Load("http://www.weather.com/weather/today/l/98033:4:US")
+let info = data.Tables.Table1.Rows.[0].Column1
 ```
 
 namespace System
@@ -70,7 +70,7 @@ Ok, it looks like provider works, but it doesn't do very good job in providing s
 Next I added sample module file, referenced F# project from C# Windows Store application and tried to compile it. It didn't work like that:  
   
 
-```
+```text
 2>C:\Program Files (x86)\MSBuild\Microsoft\VisualStudio\v12.0\AppxPackage\Microsoft.AppXPackage.Targets(852,9): error MSB3816: Loading assembly "C:\Projects\FsharpWindowsStorePrototype\FsharpPortableLibrary\bin\Debug\FSharp.Data.dll" failed. System.IO.FileNotFoundException: Could not load file or assembly 'FSharp.Core, Version=2.3.5.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
 
 2>C:\Program Files (x86)\MSBuild\Microsoft\VisualStudio\v12.0\AppxPackage\Microsoft.AppXPackage.Targets(852,9): error MSB3816: File name: 'FSharp.Core, Version=2.3.5.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a'
@@ -95,16 +95,16 @@ Finally I could build solution and do HTTP requests ... almost.
 It turned out that web server that hosts site that I'm scraping requires UserAgent to be set on HTTP request. There is a known issue with [UserAgent header](http://stackoverflow.com/questions/7454301/is-it-possible-to-modify-the-user-agent-for-a-winrt-httpwebrequest) in Windows Store apps. It is just not possible to set UserAgent header on HttpWebRequest. FSharp.Data provides nice Http helper utility, and I had a hope that it would work:  
   
 
-```
-1: open System
-2: open FSharp.Data
-3: open FSharp.Data.HttpRequestHeaders
-4: 
-5: // Run the HTTP web request
-6: Http.RequestString
-7:   ( "https://www.google.com/search?q=super",
-8:     query   = [ "q", "super" ],
-9:     headers = [ Accept HttpContentTypes.Any; UserAgent "Mozilla/5.0" ])
+```fsharp
+open System
+open FSharp.Data
+open FSharp.Data.HttpRequestHeaders
+
+// Run the HTTP web request
+Http.RequestString
+  ( "https://www.google.com/search?q=super",
+    query   = [ "q", "super" ],
+    headers = [ Accept HttpContentTypes.Any; UserAgent "Mozilla/5.0" ])
 ```
 
 namespace System
@@ -117,12 +117,12 @@ namespace FSharp.Data
 And it does work ... but only in F# interactive which uses .NET version of the binary. I thought I'm doing something wrong until I found this code in FSharp.Data souces:  
   
 
-```
-1: #if FX_NO_WEBREQUEST_USERAGENT
-2:             | "user-agent" -> if not (req?UserAgent <- value) then try req.Headers.[HeaderEnum.UserAgent] <- value with _ -> ()
-3: #else
-4:             | "user-agent" -> req.UserAgent <- value
-5: #endif
+```fsharp
+#if FX_NO_WEBREQUEST_USERAGENT
+            | "user-agent" -> if not (req?UserAgent <- value) then try req.Headers.[HeaderEnum.UserAgent] <- value with _ -> ()
+#else
+            | "user-agent" -> req.UserAgent <- value
+#endif
 ```
 
   
@@ -130,44 +130,44 @@ This explained everything. Therefore the only option left was to use Microsoft C
   
 Here is how my helper method looks like:
 
-```
- 1: open System
- 2: open FSharp.Data
- 3: open System.Net
- 4: open System.IO
- 5: open System.Net.Http
- 6: open System.Diagnostics
- 7: open System.Text.RegularExpressions
- 8: 
- 9: module DownloadHelpers =
-10: 
-11:     type DataOrError = 
-12:     | Error of Error
-13:     | Data of String
-14: 
-15:     let buildRequest(url:String, httpMethod:String) = 
-16:         let request = new HttpRequestMessage(new HttpMethod(httpMethod), url)
-17:         request.Headers.UserAgent.ParseAdd("(compatible; MSIE 10.6; Windows NT 6.1; Trident/5.0; InfoPath.2; SLCC1; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET CLR 2.0.50727) 3gpp-gba UNTRUSTED/1.0");
-18:         request
-19: 
-20:     let downloadPageByRequest(request:HttpRequestMessage) = async {
-21:         let handler = new HttpClientHandler()
-22:         handler.UseCookies <- false
-23:         let client = new HttpClient(handler)
-24:         try
-25:             use! response = Async.AwaitTask <| client.SendAsync(request)
-26:             let resultCode = response.StatusCode.ToString();
-27:             let! html = Async.AwaitTask <| response.Content.ReadAsStringAsync();
-28:             let processedHtml = Regex.Replace(html, @"\</\d+\>", "") // F# data bug
-29:             return Data processedHtml 
-30:         with ex -> 
-31:                 Debug.WriteLine(ex.ToString())
-32:                 return Error (Error.Exception ex)
-33:     }
-34: 
-35:     let downloadPage(url:System.String) = async {
-36:         return! downloadPageByRequest(buildRequest(url, HttpMethod.Get))
-37:     }
+```fsharp
+open System
+open FSharp.Data
+open System.Net
+open System.IO
+open System.Net.Http
+open System.Diagnostics
+open System.Text.RegularExpressions
+
+module DownloadHelpers =
+
+    type DataOrError = 
+    | Error of Error
+    | Data of String
+
+    let buildRequest(url:String, httpMethod:String) = 
+        let request = new HttpRequestMessage(new HttpMethod(httpMethod), url)
+        request.Headers.UserAgent.ParseAdd("(compatible; MSIE 10.6; Windows NT 6.1; Trident/5.0; InfoPath.2; SLCC1; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET CLR 2.0.50727) 3gpp-gba UNTRUSTED/1.0");
+        request
+
+    let downloadPageByRequest(request:HttpRequestMessage) = async {
+        let handler = new HttpClientHandler()
+        handler.UseCookies <- false
+        let client = new HttpClient(handler)
+        try
+            use! response = Async.AwaitTask <| client.SendAsync(request)
+            let resultCode = response.StatusCode.ToString();
+            let! html = Async.AwaitTask <| response.Content.ReadAsStringAsync();
+            let processedHtml = Regex.Replace(html, @"\</\d+\>", "") // F# data bug
+            return Data processedHtml 
+        with ex -> 
+                Debug.WriteLine(ex.ToString())
+                return Error (Error.Exception ex)
+    }
+
+    let downloadPage(url:System.String) = async {
+        return! downloadPageByRequest(buildRequest(url, HttpMethod.Get))
+    }
 ```
 
 namespace System
@@ -619,7 +619,7 @@ When I tried to pull project from Git to another computer it refused to build. F
 Googling and experimenting proved that there is an issue with Microsoft.Bcl dependency which is required by Microsoft.Net.Http. By default Nuget tries to pull older version of this library, while Microsoft.Net.Http works only with the most recent one. The solution which worked for me was to clean Nuget cache, remove Microsoft.Bcl and Microsoft.Bcl.Build projects from packages folder, and request Nuget to install those projects manually before installing Microsoft.Net.Http.  
   
 
-```
+```console
 Install-Package Microsoft.Bcl
 ```
 

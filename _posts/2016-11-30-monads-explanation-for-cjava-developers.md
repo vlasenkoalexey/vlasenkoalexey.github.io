@@ -36,7 +36,7 @@ So finally what Monad is? Conceptually this is a design pattern to wrap some val
 To get an intuition you can think about Monad as a class which supports following interface:  
   
 
-```
+```csharp
 // Pseudo code, for demonstation purposes only.
 public interface IMonad<A>
 {
@@ -84,7 +84,7 @@ Since we can't unwrap the value, we can let Monad to be responsible for manipula
 Maybe Monad  
   
 
-```
+```csharp
 public abstract class Maybe<A>
 {
     public static Maybe<A> Return(A value) //emulating Monadic constructor
@@ -128,7 +128,7 @@ Note  that base classed is used here to simulate a [discriminated union](https:
 Normally if we have class hierarchy which is few level deep, we have to check each object for null:  
   
 
-```
+```csharp
 public class User
 {
     public string UserName { get; set; }
@@ -170,7 +170,7 @@ public string GetTrackingNumber(User user)
 This is a mess, and in order to make it nicer C# 6.0 got a null-conditional operator (?.). People argued that this operator violates [Law of Demeter](http://softwareengineering.stackexchange.com/questions/299286/does-c-6-0s-new-null-conditional-operator-go-against-the-law-of-demeter), and I guess this is one of the reasons why it was added so late.  
   
 
-```
+```csharp
 public string GetTrackingNumberShort(User user)
 {
     return user?.UserOrder?.Tracking?.TrackingNumber;
@@ -183,7 +183,7 @@ Looks much better, but it doesn't feel that problem is solved mainly because you
 Here is how this code looks like with Maybe:  
   
 
-```
+```csharp
 public class User
 {
     public string UserName { get; set; }
@@ -219,7 +219,7 @@ The List Monad monad implementation is not as intuitive as the one for Maybe. Th
 In order to build intuition about List Monad, here is C# implementation with aggregated IEnumerable:  
   
 
-```
+```csharp
 public class ListMonad<A>
 {
     IEnumerable<A> elements;
@@ -262,7 +262,7 @@ public class ListMonad<A>
 And most naive implementation using extension method:  
   
 
-```
+```csharp
 public static class ListMonadAsExtensions
 {
     public static IEnumerable<B> Bind<A, B>(this IEnumerable<A> value, 
@@ -282,7 +282,7 @@ public static class ListMonadAsExtensions
 Usage demonstration:  
   
 
-```
+```csharp
 public class ListMonadSample
 {
     public class User
@@ -313,7 +313,7 @@ In this respect I think async Task is a great analogy. Result of async Task is o
 Here is a IO/Task Monad implementation:  
   
 
-```
+```csharp
 public static class TaskMonadExtensions
 {
     public static Task<T> Return<T>(this T value)
@@ -342,7 +342,7 @@ See this link for full implementation of [task chaining](https://blogs.msdn.micr
 Usage sample is rather trivial:  
   
 
-```
+```csharp
 public static async void TaskMonadSampleWithAsync()
 {
     int userId = 1;
@@ -412,7 +412,7 @@ Putting all pieces together
 I think at this moment it should be clear that concept of wrapping value and exposing consistent method for transforming it can be applied to different areas. But it is still not very clear how we can benefit from it. Let's see some more a less practical example. Let say that we have a chain of asynchronous API calls where any method can return Nothing/null.  
   
 
-```
+```csharp
 public Task<Maybe<String>> GetData() ...
 public Task<Maybe<String>> GetMoreData(Maybe<String> data) ... 
 public Task<Maybe<String>> SendProcessedResults(Maybe<String> data) ...
@@ -485,7 +485,7 @@ But it is not quite obvious why this concept is helpful and so popular. Let's lo
 Here is a simplified version of Maybe Monad (trailing underscore is used to avoid conflict with built-in Maybe implementation).  
   
 
-```
+```haskell
 -- maybe is a discriminated union that contains either wrapped 'a' value or Nothing_.
 data Maybe_ a = Nothing_ | Just_ a 
   deriving (Show, Eq, Ord) -- Hasell shoud provide default implementations for common methods.
@@ -508,7 +508,7 @@ monad >>= bind function (f in Maybe case)
 >>= for Maybe usually defined like:  
   
 
-```
+```haskell
 instance Monad Maybe_ where
    Nothing_  >>= _ = Nothing_ -- >>== stands for bind
    (Just_ x) >>= f =  sf x -- it is declared here as infix function
@@ -521,7 +521,7 @@ This definition is equivalent, but very unusual if you see it for the first time
 Now as we familiar with syntax, let's see how same Monad sample will look like in Haskell:  
   
 
-```
+```haskell
 getData :: IO (Maybe String) -- type declaration
 -- return here stands for wrapping Maybe String into IO Monad
 getData = return (Just "data") 
@@ -569,7 +569,7 @@ runWorkflow in this snippet is barely readable but conceptually similar to the o
 In order to make such code readable, Haskell introduced [do notation](https://en.wikibooks.org/wiki/Haskell/do_notation):  
   
 
-```
+```haskell
  -- function without parametes
 runWorflow = 
     do -- IO block
@@ -605,7 +605,7 @@ Computational expressions (aka Monads) in F#
 Let's see how same sample looks in F#. The thing is F# has optional type which is similar to Nullable in C#, but it doesn't support monadic operations out of box. Not a problem, it is a great exercise to build it yourself:  
   
 
-```
+```fsharp
 module Builders = 
     type MaybeBuilder() =
  
@@ -627,7 +627,7 @@ You might not understand F# syntax, but probably it is easy to notice that this 
 And here is same combined Monad sample implemented in F#:  
   
 
-```
+```fsharp
 open System
 open Builders
  
