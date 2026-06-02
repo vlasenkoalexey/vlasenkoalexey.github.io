@@ -51,9 +51,14 @@ jobs:
           JEKYLL_ENV: "production"
 
       - name: Test site
+        # Migrated posts contain legacy http:// links to third-party sites and a
+        # few href-less anchors from the Blogger export; allow those while still
+        # catching genuinely broken internal links.
         run: |
           bundle exec htmlproofer _site \
             --disable-external \
+            --no-enforce-https \
+            --allow-missing-href \
             --ignore-urls "/^http:\/\/127.0.0.1/,/^http:\/\/0.0.0.0/,/^http:\/\/localhost/"
 
       - name: Upload site artifact
