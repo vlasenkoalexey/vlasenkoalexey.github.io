@@ -2,6 +2,7 @@
 layout: post
 title: "Profiling TensorFlow v1 input pipeline and analyzing its performance using BigQuery"
 date: 2020-03-12
+categories: [Machine Learning, TensorFlow]
 tags: [BigQuery, ML, Profiling, TensorFlow]
 original_url: "https://alekseyv-dev.blogspot.com/2020/03/profiling-tensorflow-v1-input-pipeline.html"
 ---

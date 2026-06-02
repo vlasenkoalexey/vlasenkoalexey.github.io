@@ -2,6 +2,7 @@
 layout: post
 title: "Implementing F# interactive intellisense support for Visual Studio"
 date: 2015-10-04
+categories: [Programming, "F#"]
 tags: [F#, FSI, Intellisense, Visual Studio, Visual Studio Extensibility]
 original_url: "https://alekseyv-dev.blogspot.com/2015/10/implementing-f-interactive-intellisense.html"
 ---

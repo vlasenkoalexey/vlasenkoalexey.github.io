@@ -2,6 +2,7 @@
 layout: post
 title: "Using FSharp.Data in Windows Store app"
 date: 2015-04-16
+categories: [Programming, "F#"]
 tags: [F#, FSharp.Data, Microsoft.Net.Http, MVVM, PCL, Windows Store]
 original_url: "https://alekseyv-dev.blogspot.com/2015/04/using-fsharpdata-in-windows-store-app.html"
 ---

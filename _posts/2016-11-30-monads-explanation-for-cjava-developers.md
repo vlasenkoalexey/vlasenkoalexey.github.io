@@ -2,6 +2,7 @@
 layout: post
 title: "Monads explanation for C#/Java developers"
 date: 2016-11-30
+categories: [Programming, Functional Programming]
 tags: [C#, F#, Haskell, Java, Monad]
 original_url: "https://alekseyv-dev.blogspot.com/2016/11/monads-explanation-for-cjava-developers.html"
 ---

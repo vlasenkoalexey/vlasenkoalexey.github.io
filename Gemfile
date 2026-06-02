@@ -1,9 +1,15 @@
+# frozen_string_literal: true
+
 source "https://rubygems.org"
 
-# GitHub Pages builds the site with this gem set; it pins compatible
-# versions of Jekyll, minima and the allowed plugins.
-gem "github-pages", group: :jekyll_plugins
+# The Chirpy theme (built by GitHub Actions, see .github/workflows/pages-deploy.yml).
+gem "jekyll-theme-chirpy", "~> 7.5"
 
-# Windows / JRuby helpers (harmless elsewhere)
-gem "tzinfo-data", platforms: [:mingw, :mswin, :x64_mingw, :jruby]
-gem "wdm", "~> 0.1.1", platforms: [:mingw, :mswin, :x64_mingw]
+gem "html-proofer", "~> 5.0", group: :test
+
+platforms :windows, :jruby do
+  gem "tzinfo", ">= 1", "< 3"
+  gem "tzinfo-data"
+end
+
+gem "wdm", "~> 0.2.0", :platforms => [:windows]
