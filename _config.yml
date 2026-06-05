@@ -92,18 +92,18 @@ toc: true
 
 comments:
   # Global switch for the post-comment system. Keeping it empty means disabled.
-  provider: # [disqus | utterances | giscus]
+  provider: giscus # [disqus | utterances | giscus]
   disqus:
     shortname:
   utterances:
     repo:
     issue_term:
   giscus:
-    repo:
-    repo_id:
-    category:
-    category_id:
-    mapping:
+    repo: vlasenkoalexey/vlasenkoalexey.github.io
+    repo_id: R_kgDOSuiYOg
+    category: Announcements
+    category_id: DIC_kwDOSuiYOs4C-lyc
+    mapping: pathname
     strict:
     input_position:
     lang:
