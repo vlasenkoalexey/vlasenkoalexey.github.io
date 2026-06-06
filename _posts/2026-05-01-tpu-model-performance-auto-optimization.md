@@ -7,20 +7,20 @@ tags: [auto-optimization, LLM-wiki, auto-research]
 mermaid: true
 ---
 
-I'd like to make a very bold statement: given a sufficiently capable LLM, the right profiling tools, and a knowledge base that includes the model's + framework's source, an autonomous agent can drive any (model, hardware) pair to state-of-the-art performance for that combination.
+I'd like to make a bold statement: given a sufficiently capable LLM, the right profiling tools, and a knowledge base that includes the model's + framework's source, an autonomous agent can drive any (model, hardware) pair to state-of-the-art performance for that combination.
 
-The same is conceptually true for engineers — even a new grad without hands-on experience needs the same four things to optimize models: **tools** (XProf), a **knowledge base** (TPU optimization know-how), a **codebase** to work on, and, as a bonus, a **reference-optimized codebase**.
+The same is conceptually true for engineers — assuming a new-hire without hands-on experience in model optimion domain would need the same four things to optimize models: **tools** (XProf), a **knowledge base** (TPU optimization know-how), a **codebase** to work on, and, as a bonus, a **reference-optimized codebase**.
 
 Anthropic recently published an article on recursive self-improvement, with the claim that in the future, agents could become capable enough to build and train models themselves: <https://www.anthropic.com/institute/recursive-self-improvement>
 
 
 ![Anthropic recursive self improvement](/assets/images/tpu-model-performance-auto-optimization/anthropic-recursive-self-improvement.png)
 
-For model performance optimization — a different but nevertheless extremely complex and deep domain — this is already possible, at least partially.
+For model performance optimization — a different but nevertheless extremely complex domain — this is already possible, at least partially.
 
 Here is a repo that proves and demonstrates that all of that is possible already: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki>
 
-This project started as an experiment with Andrej Karpathy's [LLM gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and [autoresearch optimization loop](https://github.com/karpathy/autoresearch). But once all the components were connected together, it became obvious that this is something larger than just an auto-optimization loop. LLMs are great and can do a decent job optimizing a model — but what matters most is that this puts the engineer in the optimization loop, orchestrating the process and fully leveraging the power of LLM agents.
+This project started as an experiment with Andrej Karpathy's [LLM gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and [autoresearch optimization loop](https://github.com/karpathy/autoresearch). But once all the components were connected together, it became obvious that this is something larger than just an auto-optimization loop. LLMs are great and can do a decent job optimizing a models, but what matters most is that this puts the engineer in the optimization loop, orchestrating the process and fully leveraging the power of LLM agents.
 
 Let's dive deep into the setup and ideas behind it.
 
@@ -29,6 +29,7 @@ Let's dive deep into the setup and ideas behind it.
 ### 🔁 Autoresearch — specialized to TPU perf
 
 [Autoresearch](https://github.com/karpathy/autoresearch) is a methodology for letting an LLM agent run an open-ended research program: propose ranked hypotheses, run experiments, evaluate outcomes, revise priors, and feed what it learned into the next round. The methodology is domain-agnostic and can be used to optimize for any desirable outcome as long as it can be measured. The original work demonstrated optimizing model training efficiency (from a convergence / validation-loss perspective), but it can be repurposed to optimize model performance instead — increasing **TPS** (tokens/sec) and **MFU** (Model FLOPs Utilization).
+
 In practice this is a prompt that gives model instructions to loop through following:
 
 - Start model with profiling
