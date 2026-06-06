@@ -3,6 +3,10 @@ title: "Making Andrej Karpathy's autoresearch production-ready"
 date: 2026-06-05
 categories: [Machine Learning, Agents]
 tags: [autoresearch, llm-agents, optimization]
+mermaid: true
+image:
+  path: /assets/images/making-karpathy-autoresearch-production-ready/hero.png
+  alt: "Making Andrej Karpathy's autoresearch production-ready"
 hidden: true # remove this line to publish
 ---
 
@@ -45,7 +49,44 @@ With that in mind, let's explore the problems the autoresearch loop had in my TP
 
 Complaining, asking for permission, and stopping the optimization process are all symptoms of one problem: context pollution. Once I started investigating what was going on, it turned out the model was often skipping steps — not collecting profiles, doing blind flag sweeps, not properly generating reports, diverging from the instructions because it decided it knew better.
 
+<!-- TODO screenshot: the agent misbehaving — e.g. "I've exhausted all ideas, should I continue?" or skipping a profiling step. Save under assets/images/making-karpathy-autoresearch-production-ready/ and embed: ![alt](/assets/images/making-karpathy-autoresearch-production-ready/agent-misbehaving.png) -->
+
 What's happening is that the model always has the loop instructions in its context. When you start the optimization loop, those instructions are at the top of the context, and the model treats them as the highest priority. But as the conversation goes on, the autoresearch instructions get pushed deeper and deeper down. The context window for modern LLMs is pretty large — around 1M tokens for Opus 4.8 — so why should the model pay attention to that tiny snippet of instructions compared to everything else it has since accumulated on top of it?
+
+{% raw %}
+```mermaid
+flowchart LR
+    subgraph BEFORE["❌ Without re-injection"]
+        direction TB
+        B0["📋 Loop instructions"]
+        B1["turn 1"]
+        B2["turn 2"]
+        B3["⋯ growing history ⋯"]
+        B4["turn N"]
+        B5["😵 instructions buried —<br/>agent drifts, skips steps, stops"]
+        B0 --> B1 --> B2 --> B3 --> B4 --> B5
+    end
+    subgraph AFTER["✅ With /loop re-injection"]
+        direction TB
+        A0["📋 Loop instructions"]
+        A1["turn 1"]
+        A2["turn 2"]
+        AR["🔄 scheduler re-injects<br/>📋 Loop instructions"]
+        A3["turn N"]
+        A4["🎯 instructions stay on top —<br/>agent follows the loop"]
+        A0 --> A1 --> A2 --> AR --> A3 --> A4
+    end
+    style BEFORE fill:#7f1d1d,stroke:#fca5a5,color:#fff
+    style AFTER fill:#14532d,stroke:#86efac,color:#fff
+    style B0 fill:#1e3a8a,stroke:#93c5fd,color:#fff
+    style A0 fill:#1e3a8a,stroke:#93c5fd,color:#fff
+    style AR fill:#1e3a8a,stroke:#93c5fd,color:#fff
+    style B5 fill:#991b1b,stroke:#fca5a5,color:#fff
+    style A4 fill:#166534,stroke:#86efac,color:#fff
+```
+{% endraw %}
+
+_Loop instructions start at the top of the context, then sink as the conversation grows; `/loop` periodically pushes them back to the top._
 
 The fix is simple: force the model to keep the instructions at the top of the context window. This has to be an external mechanism, independent of the model's own loop (otherwise it can just ignore the instruction to re-read). What I ended up with is a scheduler that periodically pushes the autoresearch loop instructions back on top of the context — the same as if you manually told the model to re-read the instructions. All harnesses support this now; in Claude Code you do it with the /loop skill.
 
@@ -58,6 +99,8 @@ This is a heavy-handed solution that obviously wastes tokens, and maybe there's 
 ## Agent stopping early
 
 As with the previous problem, there are clear instructions for the agent to never stop the optimization process — but even with /loop in place, it still does. The fix here is simple, at least for Claude Code, which supports [stop hooks](https://code.claude.com/docs/en/hooks). When the LLM tries to pass control back to the user, the stop hook is triggered. A minor inconvenience is that stop hooks are global and affect all sessions — but since they can run arbitrary code, you can filter by session so the hook's logic only triggers for the specific session you care about. As with /loop, the /start-experiment skill can optionally register a stop hook for long-running optimization processes. See the implementation here: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/.claude/stop_hook.sh>
+
+<!-- TODO screenshot: the stop hook firing and pushing the agent back into the loop. Embed: ![alt](/assets/images/making-karpathy-autoresearch-production-ready/stop-hook.png) -->
 
 ## Agent narrowing down to one specific direction
 
@@ -76,8 +119,67 @@ I experimented with few approaches:
 
 The logic for bootstrapping a per-experiment fork is baked into the /start-experiment skill. The main repo being modified lives under `/raw/code/<repo_name>`. Once an experiment starts, that repo is copied to `/wiki/experiment/<experiment_name>/<experiment_lane>/.repo/<repo_name>`. With this in place, it no longer matters what the top branch in the main repo is — each session manipulates code in its own copy. Only successful experiments are merged back into the main repo.
 
+{% raw %}
+```mermaid
+flowchart TB
+    MAIN[("📦 Main repo<br/>raw/code")]
+    subgraph EXPERIMENTS["Parallel experiment lanes"]
+        direction LR
+        L1["🧪 model A session<br/>own repo copy + branches"]
+        L2["🧪 model B session<br/>own repo copy + branches"]
+        L3["🧪 model C session<br/>own repo copy + branches"]
+    end
+    MAIN -- "copy per experiment" --> L1
+    MAIN -- "copy per experiment" --> L2
+    MAIN -- "copy per experiment" --> L3
+    L1 -. "merge if successful" .-> MAIN
+    L2 -. "merge if successful" .-> MAIN
+    L3 -. "merge if successful" .-> MAIN
+    style MAIN fill:#7c3aed,stroke:#c4b5fd,color:#fff
+    style EXPERIMENTS fill:#0f172a,stroke:#475569,color:#fff
+    style L1 fill:#1e3a8a,stroke:#93c5fd,color:#fff
+    style L2 fill:#1e3a8a,stroke:#93c5fd,color:#fff
+    style L3 fill:#1e3a8a,stroke:#93c5fd,color:#fff
+```
+{% endraw %}
+
 This is a bit wasteful in that we copy the whole repo for each experiment, but disk space is cheap, and we can drop the local copy once the experiment is complete.
 
+
+## Putting it together
+
+Each fix is a small external guardrail around the same autoresearch loop — `/loop` keeps the instructions on top, the stop hook catches early exits, and the retrospective breaks the agent out of a rut:
+
+{% raw %}
+```mermaid
+flowchart TB
+    START(["▶️ /start-experiment<br/>setup + bootstrap fork"])
+    subgraph LOOP["🔁 Autoresearch loop"]
+        direction TB
+        P["📊 Profile"]
+        H["💡 Hypothesize"]
+        E["🧪 Experiment — edit code, run on TPU"]
+        M["📈 Measure"]
+        R["📝 Record result"]
+        P --> H --> E --> M --> R --> P
+    end
+    STOP(["⏹️ /stop-experiment<br/>cleanup"])
+    START --> LOOP
+    LOOP --> STOP
+    G1["🔄 /loop — re-inject instructions"]
+    G2["🪝 stop hook — block hand-back, resume"]
+    G3["🔭 retrospective — break out of one direction"]
+    G1 -. keeps loop on track .-> LOOP
+    G2 -. catches early stop .-> LOOP
+    G3 -. widens exploration .-> LOOP
+    style LOOP fill:#1e3a8a,stroke:#93c5fd,color:#fff
+    style G1 fill:#ea580c,stroke:#fdba74,color:#fff
+    style G2 fill:#ea580c,stroke:#fdba74,color:#fff
+    style G3 fill:#ea580c,stroke:#fdba74,color:#fff
+    style START fill:#166534,stroke:#86efac,color:#fff
+    style STOP fill:#7f1d1d,stroke:#fca5a5,color:#fff
+```
+{% endraw %}
 
 ## Closing thoughts
 
