@@ -76,6 +76,7 @@ flowchart LR
         A4["🎯 instructions stay on top —<br/>agent follows the loop"]
         A0 --> A1 --> A2 --> AR --> A3 --> A4
     end
+    BEFORE ==>|"add /loop"| AFTER
     style BEFORE fill:#7f1d1d,stroke:#fca5a5,color:#fff
     style AFTER fill:#14532d,stroke:#86efac,color:#fff
     style B0 fill:#1e3a8a,stroke:#93c5fd,color:#fff
