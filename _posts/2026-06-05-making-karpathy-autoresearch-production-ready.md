@@ -16,11 +16,10 @@ genuinely brilliant idea. I was able to adapt it to the model-performance-optimi
 As I mentioned there, though, I ran into some issues running it: I often had to babysit the process, where the model complained that it couldn't make further progress, that it had exhausted all ideas, or simply asked for confirmation on a trivial action.
 
 [Autoresearch prompt](https://github.com/karpathy/autoresearch/blob/master/program.md) has a snippet explicitly telling model that it should never stop, I really like it:
-```text
-NEVER STOP: Once the experiment loop has begun (after the initial setup), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human might be asleep, or gone from a computer and expects you to continue working indefinitely until you are manually stopped. You are autonomous. If you run out of ideas, think harder — read papers referenced in the code, re-read the in-scope files for new angles, try combining previous near-misses, try more radical architectural changes. The loop runs until the human interrupts you, period.
-
-As an example use case, a user might leave you running while they sleep. If each experiment takes you ~5 minutes then you can run approx 12/hour, for a total of about 100 over the duration of the average human sleep. The user then wakes up to experimental results, all completed by you while they slept!
-```
+> **NEVER STOP:** Once the experiment loop has begun (after the initial setup), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human might be asleep, or gone from a computer and expects you to continue working indefinitely until you are manually stopped. You are autonomous. If you run out of ideas, think harder — read papers referenced in the code, re-read the in-scope files for new angles, try combining previous near-misses, try more radical architectural changes. The loop runs until the human interrupts you, period.
+>
+> As an example use case, a user might leave you running while they sleep. If each experiment takes you ~5 minutes then you can run approx 12/hour, for a total of about 100 over the duration of the average human sleep. The user then wakes up to experimental results, all completed by you while they slept!
+{: .prompt-tip }
 
 And nevertheless, it did stop, complain, and ask for permission. Same as working with engineers 🙂
 
