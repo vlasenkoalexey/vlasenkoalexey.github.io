@@ -97,6 +97,7 @@ And beyond that each hypothesis and experiment is being logged and cataloged so 
 
  Every experiment it runs — winners *and* losers — is filed back into the wiki as a permanent piece of context: what was tried, what worked, what didn't, and *why*. The next hypothesis is scored against that growing record, so a refuted experiment in week one shapes the ranked list in week ten; a generalizable lesson extracted from one failed run ("scan-over-layers needs an internally-tiled attention kernel") becomes a prior the agent applies automatically the next time scan comes up. The longer it runs, the smarter it gets — not because the model is updating, but because the wiki is.
 
+{% raw %}
 ```mermaid
 flowchart TB
     subgraph INPUTS_ROW[" "]
@@ -146,6 +147,7 @@ flowchart TB
     style WIKI fill:#7c3aed,stroke:#c4b5fd,stroke-width:3px,color:#fff
     style INTERNET fill:#0ea5e9,stroke:#bae6fd,stroke-width:3px,color:#fff
 ```
+{% endraw %}
 
 ## Generalization comment
 
