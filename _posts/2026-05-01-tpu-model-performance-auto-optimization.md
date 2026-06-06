@@ -11,14 +11,14 @@ I'd like to make a very bold statement: given a sufficiently capable LLM, the ri
 
 The same is conceptually true for engineers — even a new grad without hands-on experience needs the same four things to optimize models: **tools** (XProf), a **knowledge base** (TPU optimization know-how), a **codebase** to work on, and, as a bonus, a **reference-optimized codebase**.
 
-Anthropic recently published an article on recursive self-improvement, with the claim that in the future, agents could become capable enough to build and train models themselves: https://www.anthropic.com/institute/recursive-self-improvement
+Anthropic recently published an article on recursive self-improvement, with the claim that in the future, agents could become capable enough to build and train models themselves: <https://www.anthropic.com/institute/recursive-self-improvement>
 
 
 ![Anthropic recursive self improvement](/assets/images/tpu-model-performance-auto-optimization/anthropic-recursive-self-improvement.png)
 
 For model performance optimization — a different but nevertheless extremely complex and deep domain — this is already possible, at least partially.
 
-Here is a repo that proves and demonstrates that all of that is possible already: https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki
+Here is a repo that proves and demonstrates that all of that is possible already: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki>
 
 This project started as an experiment with Andrej Karpathy's [LLM gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and [autoresearch optimization loop](https://github.com/karpathy/autoresearch). But once all the components were connected together, it became obvious that this is something larger than just an auto-optimization loop. LLMs are great and can do a decent job optimizing a model — but what matters most is that this puts the engineer in the optimization loop, orchestrating the process and fully leveraging the power of LLM agents.
 
@@ -42,7 +42,7 @@ In practice this is a prompt that gives model instructions to loop through follo
 
 ### 🔌 Xprof MCP — profiling as a first-class LLM capability
 
-Unlike optimizing for convergence — which improves for reasons that are hard to predict — optimizing model performance is highly predictable and measurable. For it to work efficiently, the LLM has to be able to profile models and analyze the profiles. For TPU performance optimization, engineers rely on [**XProf**](https://github.com/openxla/xprof) to do that job. But XProf isn't directly usable by an LLM; the common way to bridge that gap is to build an MCP server, which is what I did for this project: https://github.com/vlasenkoalexey/xprof-mcp
+Unlike optimizing for convergence — which improves for reasons that are hard to predict — optimizing model performance is highly predictable and measurable. For it to work efficiently, the LLM has to be able to profile models and analyze the profiles. For TPU performance optimization, engineers rely on [**XProf**](https://github.com/openxla/xprof) to do that job. But XProf isn't directly usable by an LLM; the common way to bridge that gap is to build an MCP server, which is what I did for this project: <https://github.com/vlasenkoalexey/xprof-mcp>
 
 XProf MCP gives LLM agent ability to look into the details of how model is running on TPU, where bottlenecks are, and based on that come up with ideas on how to improve it. Besides pure xprof features it also exposes an API to access **HLO dumps** — produced when the trainer is launched with [`XLA_FLAGS="--xla_dump_to=<dir> --xla_dump_hlo_as_text"`](https://openxla.org/xla/flags_guidance) — which lets the LLM connect profile information back to the [**optimized HLO**](https://openxla.org/xla/architecture#xla_the_tensorflow_compiler_framework) (what XLA actually executes on the TPU, after layout assignment, fusion, scheduling, collective-fusion, and remat passes) and to the [**original HLO**](https://openxla.org/xla/operation_semantics) (the IR the framework — JAX or torchax — emitted before XLA's optimization passes ran). From there the LLM can backtrace the original HLO back to the line of model code that produced it.
 
@@ -50,7 +50,7 @@ XProf MCP closes the feedback loop between the idea the agent comes up with and 
 
 ### 🧠 LLM Wiki — collection of domain knowledge on TPU optimization
 
-Out of the box, an LLM's knowledge of TPU performance is limited, it has a rough sense of FLOPs, attention, and general ML training, but not much sense of XLA optimization passes, or the quirks of any particular Pallas kernel. This is usually solved by leveraging RAG - ingesting relevant data in a vector database and later on each LLM request is enriched with data relevant to the topics that request contains. That is exactly how MaxCode and MaxKernel are built for solving specific problems of converting PyTorch model to JAX and Cuda kernels to Pallas: https://github.com/AI-Hypercomputer/accelerator-agents
+Out of the box, an LLM's knowledge of TPU performance is limited, it has a rough sense of FLOPs, attention, and general ML training, but not much sense of XLA optimization passes, or the quirks of any particular Pallas kernel. This is usually solved by leveraging RAG - ingesting relevant data in a vector database and later on each LLM request is enriched with data relevant to the topics that request contains. That is exactly how MaxCode and MaxKernel are built for solving specific problems of converting PyTorch model to JAX and Cuda kernels to Pallas: <https://github.com/AI-Hypercomputer/accelerator-agents>
 
 Setting this infrastructure is not trivial, and there is a more straightforward lightweight alternative popularized by Karpathy in his [**LLM wiki gist**](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
@@ -67,7 +67,7 @@ The ingested data is plain markdown — human-readable and searchable. [Obsidian
 
 The model code you want to optimize rarely exists in isolation — it lives inside a larger training framework your team owns or forks, like [TorchTitan](https://github.com/pytorch/torchtitan). The wiki structure adapts naturally: add the framework as a git submodule under `raw/code/<slug>`, pin the commit you ingested, and let the agent edit it in place on per-experiment branches. Each experiment is a real diff on a real branch — auditable, revertable, and tied back to the experiment page that produced it, the profile that justified it, and the verdict that accepted or rejected it.
 
-For demonstration purposes experiment code lives as part of the wiki: https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/tree/main/wiki/experiments
+For demonstration purposes experiment code lives as part of the wiki: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/tree/main/wiki/experiments>
 
 This is the part that distinguishes this setup from "LLM as smart reader." The agent gets **write access** to the model code, not just read access. It can swap an attention kernel, tune a batch size, restructure remat, flip an XLA flag, and then measure whether it actually helped — all under the autoresearch protocol that makes the change reviewable. There are multiple ways to wire this up (submodule, sibling clone, monorepo subdir), and no single right way — pick the one that matches how your team already version-controls the model.
 
@@ -101,26 +101,26 @@ And beyond that each hypothesis and experiment is being logged and cataloged so 
 flowchart TB
     subgraph INPUTS_ROW[" "]
         direction LR
-        subgraph IN["<span style='font-size:1.25em'><b>📥 What you bring</b></span>"]
+        subgraph IN["📥 What you bring"]
             direction TB
             IN1["💻 Your model +<br/>training script"]
-            IN2["🖥️ Target<br/>hardware"]
+            IN2["🖥️ Target hardware"]
         end
-        INTERNET{{"<span style='font-size:1.25em'><b>☁️ Internet</b></span><br/>papers · docs · OSS repos"}}
+        INTERNET{{"☁️ Internet<br/>papers · docs · OSS repos"}}
     end
 
     subgraph HUB_ROW[" "]
         direction LR
-        WIKI[("<div style='text-align:center'><span style='font-size:1.25em'><b>🧠 LLM Wiki</b></span></div><div style='text-align:left;white-space:nowrap'>• Domain knowledge<br/>• Your model code<br/>• Framework sources<br/>• Reference implementations<br/>• Research trail</div>")]
-        subgraph OUT["<span style='font-size:1.25em'><b>📤 What you get back</b></span>"]
+        WIKI[("🧠 LLM Wiki<br/>• Domain knowledge<br/>• Your model code<br/>• Framework sources<br/>• Reference implementations<br/>• Research trail")]
+        subgraph OUT["📤 What you get back"]
             direction TB
             OUT1["💻 Optimized model code<br/>committed to your repo"]
-            OUT2["🏆 SOTA configuration<br/>discovered<br/>(kernels, flags, sharding)"]
+            OUT2["🏆 SOTA configuration discovered<br/>(kernels, flags, sharding)"]
             OUT3["📜 Full research trail —<br/>every experiment, win or loss"]
         end
     end
 
-    subgraph ENGINE["<span style='font-size:1.25em'><b>🔁 Autoresearch 🤖</b></span>"]
+    subgraph ENGINE["🔁 Autoresearch 🤖"]
         direction LR
         E1["📖 READS<br/>priors, references"]
         E2["📊 PROFILES<br/>real runs, HLO"]
@@ -175,7 +175,7 @@ Results are following:
 | torchax (morning baseline) | bs=2 seq=1024, no scan/tokamax, plain AMP | 4,591 | 22.9 % (at seq=1024) | — | [torchax baseline](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/torchax/experiments/2026-04-25-baseline.md) |
 
 Over a weekend, the agent reached state-of-the-art performance for this simple model.
-The whole experiment trail is available here: https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/tree/main/wiki/experiments/llama3_8B_autoresearch_optimization
+The whole experiment trail is available here: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/tree/main/wiki/experiments/llama3_8B_autoresearch_optimization>
 
 ## Caveats
 
