@@ -3,7 +3,7 @@ layout: post
 title: "🤖 TPU Model Performance Auto-optimization"
 date: 2026-05-01
 categories: [Machine Learning, TPU, Agents, Performance optimization]
-tags: [auto-optimization, LLM-wiki, auto-research]
+tags: [auto-optimization, LLM-wiki, autoresearch]
 mermaid: true
 ---
 
