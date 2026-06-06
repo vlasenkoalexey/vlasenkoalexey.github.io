@@ -5,9 +5,8 @@ categories: [Machine Learning, Agents]
 tags: [autoresearch, llm-agents, optimization]
 mermaid: true
 image:
-  path: /assets/images/making-karpathy-autoresearch-production-ready/hero.png
+  path: /assets/images/making-karpathy-autoresearch-production-ready/hero.jpeg
   alt: "Making Andrej Karpathy's autoresearch production-ready"
-hidden: true # remove this line to publish
 ---
 
 Andrej Karpathy's [autoresearch](https://github.com/karpathy/autoresearch) is a
