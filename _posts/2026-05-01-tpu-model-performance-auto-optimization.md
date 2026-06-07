@@ -5,6 +5,9 @@ date: 2026-05-01
 categories: [Machine Learning, TPU, Agents, Performance optimization]
 tags: [auto-optimization, LLM-wiki, autoresearch]
 mermaid: true
+image:
+  path: /assets/images/tpu-model-performance-auto-optimization/hero.jpeg
+  alt: "TPU model performance auto-optimization"
 ---
 
 I'd like to make a bold statement: given a sufficiently capable LLM, the right profiling tools, and a knowledge base that includes the model's + framework's source, an autonomous agent can drive any (model, hardware) pair to state-of-the-art performance for that combination.
