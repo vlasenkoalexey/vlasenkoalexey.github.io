@@ -1,6 +1,6 @@
 ---
-date: 2026-06-08
-url: # TODO: paste LinkedIn permalink after publishing
+date: 2026-06-07
+url: https://www.linkedin.com/posts/oleksiyvlasenko_anthropic-recently-published-an-article-named-share-7469635315268222977-T7k9/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAALEEREB2wsAkwy4chr664ousfQIFHPaS84
 title: "Anthropic reported that 80% of their code is now written by Claude as recursive self-improvement has begun"
 source: https://www.anthropic.com/institute/recursive-self-improvement
 ---

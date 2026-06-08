@@ -1,6 +1,6 @@
 ---
 date: 2026-05-01
-url: https://www.linkedin.com/feed/update/urn:li:activity:7455092576707342336/
+url: https://www.linkedin.com/posts/oleksiyvlasenko_a-big-part-of-my-work-involves-optimizing-share-7455092575201587200-hQdW/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAALEEREB2wsAkwy4chr664ousfQIFHPaS84
 title: "TPU model performance auto-optimization"
 related_post: 2026-05-01-tpu-model-performance-auto-optimization
 repo: https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki
