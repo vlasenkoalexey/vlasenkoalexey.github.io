@@ -13,4 +13,4 @@ Two facts stand out for me:
 
 - As of May 2026, over 80% of Anthropic's production code is authored by Claude.
 
-![How AI development has evolved at Anthropic — from people on laptops, to chatbots, to coding agents, to autonomous agents delegating to other agents, toward closing the loop](/assets/images/linkedin/anthropic-recursive-self-improvement.png)
+![How AI development has evolved at Anthropic — from people on laptops, to chatbots, to coding agents, to autonomous agents delegating to other agents, toward closing the loop](/assets/images/tpu-model-performance-auto-optimization/anthropic-recursive-self-improvement.png)
