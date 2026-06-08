@@ -14,7 +14,7 @@ timezone: America/Los_Angeles
 
 title: Aleksey Vlasenko # the main title
 
-tagline: Tech Lead Manager on the PyTorch TPU team, pushing models to peak efficiency on TPUs and GPUs — and experimenting with AI agents to automate that work. # subtitle
+tagline: Tech Lead Manager on the PyTorch TPU team.<br>Pushing models to peak efficiency on TPUs and GPUs, and experimenting with AI agents to automate that work. # subtitle
 
 description: >- # used by seo meta and the atom feed
   Notes on ML performance — optimizing and scaling models for training and

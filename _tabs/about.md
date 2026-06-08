@@ -4,7 +4,7 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-I'm a Tech Lead Manager (TLM) on the **PyTorch / TPU** team at Google, focused on **optimizing and scaling PyTorch models for training on TPUs**. 
+I'm a Tech Lead Manager (TLM) on the **PyTorch TPU** team at Google, focused on **optimizing and scaling PyTorch models for training on TPUs**.
 
 Previously I was TLM on the **Vertex Prediction Performance** team, where we focused on optimizing **GPU and TPU models for inference**.
 
