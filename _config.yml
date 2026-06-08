@@ -14,10 +14,12 @@ timezone: America/Los_Angeles
 
 title: Aleksey Vlasenko # the main title
 
-tagline: What I cannot code, I do not understand. # subtitle
+tagline: Tech Lead Manager on the PyTorch TPU team, pushing models to peak efficiency on TPUs and GPUs — and experimenting with AI agents to automate that work. # subtitle
 
 description: >- # used by seo meta and the atom feed
-  Notes on machine learning, TensorFlow, BigQuery, F#, .NET and developer tooling.
+  Notes on ML performance — optimizing and scaling models for training and
+  inference on TPUs and GPUs, profiling and compilers, and using agents to
+  improve both model optimization and the development process.
 
 # Fill in the protocol & hostname for your site.
 url: "https://vlasenkoalexey.github.io"
