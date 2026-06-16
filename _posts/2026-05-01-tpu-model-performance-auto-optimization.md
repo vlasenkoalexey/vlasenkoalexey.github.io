@@ -12,7 +12,7 @@ image:
 
 I'd like to make a bold statement: given a sufficiently capable LLM, the right profiling tools, and a knowledge base that includes the model's + framework's source, an autonomous agent can drive any (model, hardware) pair to state-of-the-art performance for that combination.
 
-The same is conceptually true for engineers — assuming a new-hire without hands-on experience in model optimion domain would need the same four things to optimize models: **tools** (XProf), a **knowledge base** (TPU optimization know-how), a **codebase** to work on, and, as a bonus, a **reference-optimized codebase**.
+The same is conceptually true for engineers — assuming a new hire without hands-on experience in the model-optimization domain would need the same four things to optimize models: **tools** (XProf), a **knowledge base** (TPU optimization know-how), a **codebase** to work on, and, as a bonus, a **reference-optimized codebase**.
 
 Anthropic recently published an article on recursive self-improvement, with the claim that in the future, agents could become capable enough to build and train models themselves: <https://www.anthropic.com/institute/recursive-self-improvement>
 
@@ -23,7 +23,7 @@ For model performance optimization — a different but nevertheless extremely co
 
 Here is a repo that proves and demonstrates that all of that is possible already: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki>
 
-This project started as an experiment with Andrej Karpathy's [LLM gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and [autoresearch optimization loop](https://github.com/karpathy/autoresearch). But once all the components were connected together, it became obvious that this is something larger than just an auto-optimization loop. LLMs are great and can do a decent job optimizing a models, but what matters most is that this puts the engineer in the optimization loop, orchestrating the process and fully leveraging the power of LLM agents.
+This project started as an experiment with Andrej Karpathy's [LLM gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and [autoresearch optimization loop](https://github.com/karpathy/autoresearch). But once all the components were connected together, it became obvious that this is something larger than just an auto-optimization loop. LLMs are great and can do a decent job optimizing models, but what matters most is that this puts the engineer in the optimization loop, orchestrating the process and fully leveraging the power of LLM agents.
 
 Let's dive deep into the setup and ideas behind it.
 
@@ -33,7 +33,7 @@ Let's dive deep into the setup and ideas behind it.
 
 [Autoresearch](https://github.com/karpathy/autoresearch) is a methodology for letting an LLM agent run an open-ended research program: propose ranked hypotheses, run experiments, evaluate outcomes, revise priors, and feed what it learned into the next round. The methodology is domain-agnostic and can be used to optimize for any desirable outcome as long as it can be measured. The original work demonstrated optimizing model training efficiency (from a convergence / validation-loss perspective), but it can be repurposed to optimize model performance instead — increasing **TPS** (tokens/sec) and **MFU** (Model FLOPs Utilization).
 
-In practice this is a prompt that gives model instructions to loop through following:
+In practice this is a prompt that gives the model instructions to loop through the following:
 
 - Start model with profiling
 - Collect profile
@@ -48,24 +48,24 @@ In practice this is a prompt that gives model instructions to loop through follo
 
 Unlike optimizing for convergence — which improves for reasons that are hard to predict — optimizing model performance is highly predictable and measurable. For it to work efficiently, the LLM has to be able to profile models and analyze the profiles. For TPU performance optimization, engineers rely on [**XProf**](https://github.com/openxla/xprof) to do that job. But XProf isn't directly usable by an LLM; the common way to bridge that gap is to build an MCP server, which is what I did for this project: <https://github.com/vlasenkoalexey/xprof-mcp>
 
-XProf MCP gives LLM agent ability to look into the details of how model is running on TPU, where bottlenecks are, and based on that come up with ideas on how to improve it. Besides pure xprof features it also exposes an API to access **HLO dumps** — produced when the trainer is launched with [`XLA_FLAGS="--xla_dump_to=<dir> --xla_dump_hlo_as_text"`](https://openxla.org/xla/flags_guidance) — which lets the LLM connect profile information back to the [**optimized HLO**](https://openxla.org/xla/architecture#xla_the_tensorflow_compiler_framework) (what XLA actually executes on the TPU, after layout assignment, fusion, scheduling, collective-fusion, and remat passes) and to the [**original HLO**](https://openxla.org/xla/operation_semantics) (the IR the framework — JAX or torchax — emitted before XLA's optimization passes ran). From there the LLM can backtrace the original HLO back to the line of model code that produced it.
+XProf MCP gives the LLM agent the ability to look into the details of how the model is running on TPU, where the bottlenecks are, and based on that come up with ideas on how to improve it. Besides pure xprof features it also exposes an API to access **HLO dumps** — produced when the trainer is launched with [`XLA_FLAGS="--xla_dump_to=<dir> --xla_dump_hlo_as_text"`](https://openxla.org/xla/flags_guidance) — which lets the LLM connect profile information back to the [**optimized HLO**](https://openxla.org/xla/architecture#xla_the_tensorflow_compiler_framework) (what XLA actually executes on the TPU, after layout assignment, fusion, scheduling, collective-fusion, and remat passes) and to the [**original HLO**](https://openxla.org/xla/operation_semantics) (the IR the framework — JAX or torchax — emitted before XLA's optimization passes ran). From there the LLM can backtrace the original HLO back to the line of model code that produced it.
 
 XProf MCP closes the feedback loop between the idea the agent comes up with and how that idea actually performs.
 
 ### 🧠 LLM Wiki — collection of domain knowledge on TPU optimization
 
-Out of the box, an LLM's knowledge of TPU performance is limited, it has a rough sense of FLOPs, attention, and general ML training, but not much sense of XLA optimization passes, or the quirks of any particular Pallas kernel. This is usually solved by leveraging RAG - ingesting relevant data in a vector database and later on each LLM request is enriched with data relevant to the topics that request contains. That is exactly how MaxCode and MaxKernel are built for solving specific problems of converting PyTorch model to JAX and Cuda kernels to Pallas: <https://github.com/AI-Hypercomputer/accelerator-agents>
+Out of the box, an LLM's knowledge of TPU performance is limited — it has a rough sense of FLOPs, attention, and general ML training, but not much sense of XLA optimization passes or the quirks of any particular Pallas kernel. This is usually solved by leveraging RAG - ingesting relevant data in a vector database and later on each LLM request is enriched with data relevant to the topics that request contains. That is exactly how MaxCode and MaxKernel are built for solving specific problems of converting PyTorch model to JAX and Cuda kernels to Pallas: <https://github.com/AI-Hypercomputer/accelerator-agents>
 
-Setting this infrastructure is not trivial, and there is a more straightforward lightweight alternative popularized by Karpathy in his [**LLM wiki gist**](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+Setting up this infrastructure is not trivial, and there is a more straightforward, lightweight alternative popularized by Karpathy in his [**LLM wiki gist**](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-The idea is to have the LLM follow a predefined structure containing immutable raw data sources plus agent-generated wiki pages. The user drops raw information under the raw data sources, instructs an agent to “inject” it, and the LLM produces structured wiki pages that contain extracted concepts, links to other concepts, and links back to the original data sources. The process is loosely analogous to ingestion into a vector database in RAG, but here the produced artifacts are plain markdown files. 
+The idea is to have the LLM follow a predefined structure containing immutable raw data sources plus agent-generated wiki pages. The user drops raw information under the raw data sources, instructs an agent to “ingest” it, and the LLM produces structured wiki pages that contain extracted concepts, links to other concepts, and links back to the original data sources. The process is loosely analogous to ingestion into a vector database in RAG, but here the produced artifacts are plain markdown files. 
 Once such LLM wiki is produced, it is similar to light-RAG, all you need to do to leverage it is to instruct an agent to consult wiki during hypothesis generation.
 
 Ingestion can be as low-lift as "find every public reference to Pallas TPU kernels, catalog them by repo, backend, stability, and claimed performance improvements, and add the result to the wiki" — which is exactly how this repo's [Pallas kernel directory](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/analyses/2026-04-23-pallas-kernel-directory.md) was built, surveying ~200 kernels across ~30 OSS repos and indexing them by function. The payoff is leverage on every subsequent run: when the agent is scoring optimization hypotheses later, it already knows which Pallas kernels exist in the ecosystem, which are production-grade, and how to apply them — no re-discovery, no hallucinating kernels that don't exist.
 
-The ingested data is plain markdown — human-readable and searchable. [Obsidian](https://obsidian.md/) is often used to inspect and navigate such wikis, and it has a nice graph view that visualizes knowledge nodes (concepts) and the edges (connections) between them:
+The ingested data is plain markdown — human-readable and searchable. [Obsidian](https://obsidian.md/) is often used to inspect and navigate such wikis, with a nice graph view that visualizes knowledge nodes (concepts) and the edges (connections) between them. Click the image below for a live, interactive visualization of what the current wiki knowledge base looks like:
 
-[![The wiki graph: every markdown page the agent has built or read, and the cross-links between them. Click for full resolution.](/assets/images/tpu-model-performance-auto-optimization/wiki-graph.webp)](/assets/images/tpu-model-performance-auto-optimization/wiki-graph.png)
+[![The wiki graph: every markdown page the agent has built or read, and the cross-links between them. Click to interact.](/assets/images/tpu-model-performance-auto-optimization/wiki.png)](https://vlasenkoalexey.github.io/tpu_performance_autoresearch_wiki/tools/graph/index.html)
 
 ### 💻 Your model codebase — what LLM can actually change and optimize
 
@@ -161,7 +161,11 @@ But the same idea applies to **any** optimization problem that has **domain know
 
 ## Experiment case study
 
-Everything is just theory until we have data to prove it. To demonstrate that the approach works, we ran an experiment optimizing the Llama 3 8B model on TPU v6e-8. The model is small and extremely well studied and doesn't take long to run, so iteration speed is fast.
+Everything is just theory until we have data to prove it. We ran two case studies on TPU v6e-8: first **Llama 3 8B** — a single-harness deep optimization that pushed one model to state of the art — and then **Qwen3 8B** — a head-to-head comparing several agent + harness combinations turned loose on the same model.
+
+### Llama 3 8B
+
+To demonstrate that the approach works, we ran an experiment optimizing the Llama 3 8B model on TPU v6e-8. The model is small and extremely well studied and doesn't take long to run, so iteration speed is fast.
 There is also an optimized version in [MaxText repo](https://github.com/AI-Hypercomputer/tpu-recipes/tree/main/training/trillium/Llama3.1-8B-MaxText/v6e-8) that we can compare it to.
 
 Model definition was generated from scratch by LLM in a 2 step process:
@@ -173,20 +177,57 @@ Experiment was performed using Claude Code with Opus 4.7 on high effort setting 
 Results are following:
 
 
-| Stack | Best config | tok/s/chip | MFU | vs MaxText | Reference experiment |
-|-------|-------------|-----------:|----:|-----------:|----------------------|
-| 🏆 **JAX (Flax NNX)** | bs=4, full MaxText XLA stack + SC offload of AR/RS/AG + tokamax-splash w/ base2/fuse_recip/mlc=30 + tokamax CE chunked_xla + scan/`nothing_saveable` | **~7,700** (peak 7,768) | **~43.3 %** (peak 43.6 %) | **+8.9 %** (peak +9.9 %) | [JAX exp 27/28b](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/jax/experiments/2026-04-26-jax-exp27-28-sparsecore-rs-ag-offload-frontier.md) |
-| MaxText reference | bs=3, `tpu-recipes-v0.1.4` recipe `llama3_1_8b_8192_no_collective_matmul` (host-offload of activations + custom remat + AR-only SC offload) | 7,069 | 44.6 % | — (anchor) | [MaxText baseline](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/maxtext/experiments/2026-04-25-maxtext-llama3-1-8b-v6e8-baseline.md) |
-| torchax (PyTorch-on-JAX) | bs=3, scan + tokamax CE chunked_xla + tokamax-splash w/ base2/fuse_recip/mlc=30 + AMP fp32-master | 6,559 | 36.8 % | -7.2 % | [torchax exp 72a/74b](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/torchax/experiments/2026-04-26-exp72a-tokamax-splash-bs3-seq8k-accepted.md) |
-| torchax (morning baseline) | bs=2 seq=1024, no scan/tokamax, plain AMP | 4,591 | 22.9 % (at seq=1024) | — | [torchax baseline](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/torchax/experiments/2026-04-25-baseline.md) |
+| Stack | tok/s/chip | MFU | vs MaxText | Ref |
+|-------|-----------:|----:|-----------:|-----|
+| 🏆 **JAX (Flax NNX)** | **~7,700** (peak 7,768) | **~43.3 %** (peak 43.6 %) | **+8.9 %** (peak +9.9 %) | [exp 27/28b](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/jax/experiments/2026-04-26-jax-exp27-28-sparsecore-rs-ag-offload-frontier.md) |
+| MaxText reference | 7,069 | 44.6 % non-causal / **≈39.6 %** causal | — (anchor) | [baseline](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/maxtext/experiments/2026-04-25-maxtext-llama3-1-8b-v6e8-baseline.md) |
+| torchax (PyTorch-on-JAX) | 6,559 | 36.8 % | −7.2 % | [exp 72a/74b](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/torchax/experiments/2026-04-26-exp72a-tokamax-splash-bs3-seq8k-accepted.md) |
+| torchax (baseline) | 4,591 | 22.9 % @ seq=1024 | — | [baseline](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/experiments/llama3_8B_autoresearch_optimization/torchax/experiments/2026-04-25-baseline.md) |
+
+Best config per row:
+
+- **JAX (Flax NNX)** — bs=4, full MaxText XLA stack + SC offload of AR/RS/AG + tokamax-splash w/ base2/fuse_recip/mlc=30 + tokamax CE chunked_xla + scan/`nothing_saveable`
+- **MaxText reference** — bs=3, `tpu-recipes-v0.1.4` recipe `llama3_1_8b_8192_no_collective_matmul` (host-offload of activations + custom remat + AR-only SC offload)
+- **torchax (PyTorch-on-JAX)** — bs=3, scan + tokamax CE chunked_xla + tokamax-splash w/ base2/fuse_recip/mlc=30 + AMP fp32-master
+- **torchax (baseline)** — bs=2 seq=1024, no scan/tokamax, plain AMP
+
+A note on the MFU column: the MaxText reference reports MFU on a **non-causal** FLOP basis — the `tpu-recipes-v0.1.4` recipe we ran predates MaxText's causal-attention `÷2` fix — while our JAX and torchax lanes count causal FLOPs. On the same causal basis the MaxText reference is **≈39.6 %**, so the JAX lane (43.3 %) actually leads on MFU too. The `vs MaxText` column compares **tokens/sec/chip**, which is convention-free and unaffected by this difference (hence the JAX lane's +8.9 % there). See [caveats](#caveats).
 
 Over a weekend, the agent reached state-of-the-art performance for this simple model.
 The whole experiment trail is available here: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/tree/main/wiki/experiments/llama3_8B_autoresearch_optimization>
 
+Click the image below to open the interactive experiment explorer — toggle the JAX vs torchax lanes, switch between MFU and TPS, hide crashed runs, and click any point to open the underlying experiment page:
+
+[![Llama 3 8B auto-optimization case study. Click to interact.](/assets/images/tpu-model-performance-auto-optimization/llama3-mfu.png)](https://vlasenkoalexey.github.io/tpu_performance_autoresearch_wiki/wiki/analyses/llama3/mfu-explorer.html)
+
+### Qwen3 8B (update as of 06/15/2026)
+
+The Llama 3 8B run used a single harness (Claude Code). For the next case study we asked a different question: **how do different agents and harnesses compare when each is set loose on the same model, fully autonomously?** We ran [Qwen3 8B](https://huggingface.co/Qwen/Qwen3-8B) on the same TPU v6e-8 with four agent + harness combinations — Claude Code (Opus 4.8), Claude Code (Fable 5), Codex (GPT-5.5), and Antigravity (Gemini 3.1 pro) — with no steering instructions. The only nudge was eventually pointing each agent at the MaxText repo as a reference.
+
+Best result per harness at seq 8192, measured as causal-adjusted MFU and compared against the MaxText reference normalized to the same causal FLOP accounting (see [caveats](#caveats)):
+
+| Agent + harness | Best MFU @ seq 8192 | vs MaxText |
+|-----------------|--------------------:|-----------:|
+| 🏆 **Codex (GPT-5.5)** | **43.2 %** | **+8.5 %** |
+| **Claude Code (Fable 5)** | **39.9 %** | **+0.3 %** |
+| MaxText reference (causal-adjusted) | 39.8 % | — (anchor) |
+| Claude Code (Opus 4.8) | 34.8 % | −12.6 % |
+| Antigravity (Gemini 3.1 pro) | 30.6 % | −23.1 % |
+
+At least Codex (GPT-5.5) and Fable 5 autonomously surpassed the optimized MaxText reference; Claude Opus 4.8 and Gemini 3.1 pro trailed it in this round. The interesting result isn't any single number — it's that several different agent + harness stacks can now each drive the loop end-to-end without hand-holding, and that the spread between them is itself a measurement.
+
+There are a lot of interesting nuances to explore from these experiments. It seems that Codex did the best here simply because it didn't bail out like other models regarding of instructions and kept pushing to run more experiments. The conclusion is that every model requires some amount of special handling to achieve best results, and the goal of this experiment is not to demonstrate which model works better, but rather to prove that approach can be adapted to work with any resonably intelligent model.
+
+Click the image below to open the interactive experiment explorer — toggle per-harness lanes, switch between MFU and TPS, hide crashed runs, and click any point to open the underlying experiment page:
+
+[![Qwen3 8B auto-optimization case study. Click to interact.](/assets/images/tpu-model-performance-auto-optimization/qwen3-mfu.png)](https://vlasenkoalexey.github.io/tpu_performance_autoresearch_wiki/wiki/analyses/qwen3/mfu-explorer.html)
+
+The full per-harness experiment trail lives under the `qwen3_cc` / `qwen3_cc5` / `qwen3_cx` / `qwen3_ag` folders here: <https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/tree/main/wiki/experiments>
+
 ## Caveats
 
-1. At least in the original setup, the optimization loop only worked well on Claude Code. Both GPT-5.5 in Codex and Gemini 3.1 Pro in Gemini CLI struggled to make progress. This is already fixed; more updates are coming.
-2. I had to babysit the optimization loop because it stopped fairly often, complaining that it couldn't optimize further. I did some 'gentle' steering by asking it to explore a specific topic on a few occasions, but didn't modify any code myself. There's at least a partial solution to this as well, which I'll publish in the future.
+1. At least in the original setup, the optimization loop only worked well on Claude Code. Both GPT-5.5 in Codex and Gemini 3.1 Pro in Gemini CLI struggled to make progress - **fixed as of 06/15/2026**.
+2. I had to babysit the optimization loop because it stopped fairly often, complaining that it couldn't optimize further. I did some 'gentle' steering by asking it to explore a specific topic on a few occasions, but didn't modify any code myself. There's at least a partial solution to this as well, which I'll publish in the future - [**fixed as of 06/05/2026**]({% post_url 2026-06-05-making-karpathy-autoresearch-production-ready %}).
 3. Auto-optimization doesn't work as well for more complex models yet — but that doesn't mean the approach isn't useful.
 
 ## Closing thoughts
