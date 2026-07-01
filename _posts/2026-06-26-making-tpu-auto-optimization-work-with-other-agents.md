@@ -31,7 +31,15 @@ Same lesson as [Software 3.0]({% post_url 2026-06-05-making-karpathy-autoresearc
 
 The fix is to stop stuffing everything into one prompt and instead specialize the loop into a small number of purpose-built components. That's what skills and sub-agents are for.
 
-## 🧩 Skills vs sub-agents
+## 🧩 Formalizing the auto-optimization process using skills and sub-agents
+
+Keeping everything in the same context might work, and the original prototype is proof that it can work. But agents don't generally follow instructions precisely. There are a few practical examples:
+
+1. If you make an agent load a huge log from GKE into its main context window, it degrades the agent and it starts to care less about the original prompt instructions it was provided with. The solution would be spinning up a sub-agent to do the log parsing and only providing a minimal meaningful result back to the main agent thread.
+2. Whenever the agent is given a specific step to execute, like collecting a profile, for whatever reason it might decide to skip this step. The way to enforce it would be to make it write something concrete, like the profile URI it analyzed and a summary of that analysis.
+3. When you tell the agent to load information from the wiki, most likely it will do a sloppy job of it. Instead we can force it to load exactly the content we care about, and that should not be the whole wiki. We extract the domain-specific pages into a sub-wiki and force the agent to load just that.
+
+In all cases this formalizes the process as a collection of **skills** and **sub-agents**.
 
 Claude Code, Codex, and Antigravity all expose two extension mechanisms — skills and sub-agents — with slightly different names but essentially the same shape:
 
@@ -48,7 +56,7 @@ Both concepts translate across harnesses:
 
 Once you can name components as one or the other, the fix for the Codex/Gemini reliability gap almost writes itself: split the monolithic loop prompt into a few skills and sub-agents, each with a single clear job.
 
-## 🔁 Updated auto-optimization loop using **skills** and **sub-agents**
+## 🔄 Updated auto-optimization loop using **skills** and **sub-agents**
 
 Instantiating this pattern for each stage of the loop turns the original monolithic prompt into a chain of specialized components:
 
@@ -124,6 +132,14 @@ If the hypothesis was "swap chunked-XLA CE for the tokamax mosaic_tpu kernel via
 
 That single check catches a whole class of failure where the loop *thinks* it's making progress but the compiler quietly optimized away the change, or the code path never fired, or the flag didn't take effect. Before the audit, these silent no-ops would sometimes be filed as `supported` on the strength of a lucky noise sample. After the audit, they don't get past dispatch.
 
+## 🎓 Self-improvement — the loop feeding its own prompts
+
+One benefit of running everything as an agentic loop is that the artifacts the loop produces — experiment pages, session logs — can be fed back into the loop's own instructions to make it better next time. Two mechanisms here: one already in production, one still exploratory.
+
+**Concept extraction from the experiment trail.** Every experiment the loop runs files a wiki page with hypothesis, verdict, and profile summary. The collection of `supported` experiments across a lane is a corpus of "what actually worked" — and an LLM can walk that corpus and pull out the recurring patterns. That's exactly what [`wiki/model-optimization-blueprint.md`](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/model-optimization-blueprint.md) is — the ordered phase ladder that `/formulate-hypothesis` loads on every iteration was extracted from prior experiments by another LLM, using a canned prompt sitting right next to it at [`model-optimization-blueprint-regenerate-prompt.md`](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/wiki/model-optimization-blueprint-regenerate-prompt.md). As the wiki grows, I regenerate the blueprint; the loop then benefits from a better guide the next time it iterates.
+
+**Process optimization from the session log.** Every loop iteration leaves a trail — which skills fired, which sub-agents got dispatched, where the master looped on the same refuted hypothesis, where it silently skipped a step. That log is itself an artifact an LLM can analyze, with the goal of improving the skill and sub-agent definitions themselves. One obvious conclusion is that different LLMs have different quirks — subjectively Codex seems to follow instruction better, Opus is most flexible and versatile, Gemini needs the surgical-edit discipline enforced harder — and could plausibly benefit from per-harness variants of the same skill. This is still exploratory; I haven't productionized the meta-analysis path yet. But the raw material is on disk in every session directory, and nothing about the loop structure prevents it from becoming a normal input to the next round of regeneration.
+
 ## 📈 Comparing different LLMs/harnesses on updated auto-optimization loop
 
 The Qwen3 8B experiment on v6e-8 was designed as the head-to-head test of the specialized loop. Same repo, same skills, same sub-agents, same wiki, same target hardware, same starting baseline. Only the harness + underlying model changed.
@@ -134,8 +150,8 @@ The Qwen3 8B experiment on v6e-8 was designed as the head-to-head test of the sp
 
 **Results.**
 
-[![Qwen3 8B MFU across four harnesses — Codex, Fable 5, Opus 4.8, Antigravity/Gemini 3.1 Pro](/assets/images/making-tpu-auto-optimization-work-with-other-agents/qwen3-mfu-case-study.webp)](https://vlasenkoalexey.github.io/2026/05/tpu-model-performance-auto-optimization/)
-_MFU trajectory over the unattended loop for each harness. Click through to the Qwen3 case-study section of the first post for the interactive breakdown._
+[![Qwen3 8B MFU across four harnesses — Codex, Fable 5, Opus 4.8, Antigravity/Gemini 3.1 Pro](/assets/images/making-tpu-auto-optimization-work-with-other-agents/qwen3-mfu-case-study.webp)](https://vlasenkoalexey.github.io/tpu_performance_autoresearch_wiki/wiki/analyses/qwen3/mfu-explorer.html)
+_MFU trajectory over the unattended loop for each harness. Click through for the interactive per-harness explorer._
 
 
 | Harness / model | Top MFU | Delta vs MaxText 39.8% | Loop behavior |
