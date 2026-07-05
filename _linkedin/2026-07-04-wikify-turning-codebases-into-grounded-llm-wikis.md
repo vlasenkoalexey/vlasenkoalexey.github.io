@@ -1,7 +1,7 @@
 ---
 date: 2026-07-04
 url:
-title: "Wikify repo — turning codebases into grounded LLM wikis"
+title: "wikify repo — turning codebases into grounded LLM wikis"
 related_post: 2026-07-04-wikify-turning-codebases-into-grounded-llm-wikis
 post_url: https://vlasenkoalexey.github.io/2026/07/wikify-turning-codebases-into-grounded-llm-wikis/
 ---
