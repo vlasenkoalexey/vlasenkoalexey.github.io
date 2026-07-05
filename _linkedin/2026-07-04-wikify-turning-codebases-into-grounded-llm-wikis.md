@@ -8,33 +8,28 @@ post_url: https://vlasenkoalexey.github.io/2026/07/wikify-turning-codebases-into
 
 Your agent doesn't need to grep your code. It needs a map of it.
 
-In my TPU model performance auto-optimization work, almost every step the agent takes runs through code: the model under optimization, the framework it executes on (PyTorch, JAX, TorchTPU), and the reference implementations it borrows ideas from (MaxText, tokamax). Out of the box an LLM knows these codebases as fuzzy training-data memories of some older version. Giving the agent a checkout helps, but grep returns text matches, not understanding — and every session re-discovers the same code structure from scratch. Ingesting the codebases into the LLM wiki — an annotated map the agent reads before touching the source — is what unlocks the real capabilities:
+When working on the TPU model performance auto-optimization project, I realized that there is a lot of value in putting relevant codebases into the same place and ingesting them into an LLM wiki. Out of the box an LLM knows these codebases as fuzzy training-data memories of some older version. Giving the agent access to the raw codebase helps, but grep returns text matches, not understanding — and every session re-discovers the same code structure from scratch. Ingesting the codebases into the LLM wiki — an annotated map the agent reads before touching the source — is what unlocks the real capabilities:
 
 - Efficient navigation: overview page → concept page → exact file and line. Minimal context, no directory archaeology.
-- Grounded internals answers: "how does chunked cross-entropy work here?" answered from pages that cite real symbols, one hop from pinned source.
-- Cross-repo stack traces: follow a crash or a suspicious HLO op end-to-end — TorchTitan → PyTorch → TorchTPU → XLA → driver.
-- Extracting optimizations from reference implementations: kernels and sharding tricks in MaxText become named, citable concepts to compare your model against.
-- Migration between codebases: HuggingFace PyTorch → JAX, or MaxText → TorchTitan, becomes a mapping between two grounded descriptions.
+- Grounded internals answers: "how does chunked cross-entropy work here?" answered from pages that cite real symbols, one hop from pinned source. This greatly reduces agents hallucinating answers without grounding them in real understanding.
+- Cross-repo stack traces: follow a crash or a suspicious HLO op end-to-end — TorchTitan → PyTorch → TorchTPU → XLA → libtpu driver.
+- Extracting optimizations from reference implementations: sharding and optimization tricks from MaxText, kernels from tokamax.
+- Migration between codebases: HuggingFace PyTorch → JAX, or MaxText → TorchTitan, becomes a mapping between two grounded descriptions. When migrating, the agent has full context of the codebase it is migrating from and migrating to, which makes the process a one-shot prompt in most cases.
 
-My first approach was the naive method: just tell the agent to "ingest this codebase" like an article. Better than nothing — but shallow, wasteful, and the summaries drift the moment the code changes.
+But what does it mean to ingest a codebase in practice? My first approach was the naive method: just tell the agent to "ingest this codebase" like an article. Better than nothing — but shallow, wasteful, and the summaries drift the moment the code changes.
 
-Then off-the-shelf tools (graphify, understand-anything). Two dealbreakers: they store results in proprietary black-box formats you can't share as a git repo, and they parse code with AST — syntactic only, so they see that a name appears, not which symbol it refers to.
+I explored tools that exist to map codebases, the most popular being graphify and understand-anything. But neither would work naturally for my use case because they store results in proprietary black-box formats you can't share as a git repo. And it turns out most of the tools for code mapping trade breadth of programming-language support for depth of actual codebase understanding. They parse code with AST — syntactic only, so they see that a name appears, not which symbol it refers to.
 
-So I built wikify-repo. Why it's better:
+So I built wikify-repo that addresses both of those problems:
 
-- SCIP instead of AST — the real compiler/type-checker resolves every symbol, cross-file reference, and call path
-- LLM annotates only the ~20% most central code that explains ~80% of the repo; the rest gets deterministic catalog pages, so nothing is dropped
-- A citation linter as a hard build gate — every claim must cite a compiler-resolved symbol or the page doesn't ship
-- Output is plain markdown in your own repo — shareable, diffable, readable by Claude Code, Codex, or Antigravity with nothing installed
+- It relies on SCIP instead of AST — the real compiler/type-checker resolves every symbol, cross-file reference, and call path
+- It outputs the processed codebase as plain markdown in your own repo — shareable, diffable, readable by Claude Code, Codex, or Antigravity with nothing installed
 
-Fitting test: I pointed it at the alternative code-mapping tools themselves — the comparison wiki cites their actual implementations.
+The idea is simple: record every class, method, and their relationships with SCIP, then spend the LLM annotating only the most central ~20% of nodes — enough to explain ~80% of the repo, while the rest still get a deterministic catalog page so nothing is dropped. A citation linter acts as a hard build gate: every claim must cite a compiler-resolved symbol, or the page doesn't ship. Then everything lands in the existing LLM wiki with core concepts connected. A single /wikify-ingest-repo skill handles the whole ingestion process end-to-end.
 
 Full write-up: https://vlasenkoalexey.github.io/2026/07/wikify-turning-codebases-into-grounded-llm-wikis/
 
 The tool: https://github.com/vlasenkoalexey/wikify-repo
 Demo / template: https://github.com/vlasenkoalexey/wikify-repo-demo
-
-Fourth post in the series:
-- Part 1 — https://vlasenkoalexey.github.io/2026/05/tpu-model-performance-auto-optimization/
-- Part 2 — https://vlasenkoalexey.github.io/2026/06/making-karpathy-autoresearch-production-ready/
-- Part 3 — https://vlasenkoalexey.github.io/2026/06/making-tpu-auto-optimization-work-with-other-agents/
+Detailed comparison to other code-mapping tools, generated by wikify-repo itself: https://github.com/vlasenkoalexey/codebase-cartography-wiki
+Previous posts in TPU Model Performance Auto-optimization series: https://vlasenkoalexey.github.io/tags/autoresearch/ 
