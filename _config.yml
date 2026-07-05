@@ -14,7 +14,7 @@ timezone: America/Los_Angeles
 
 title: Aleksey Vlasenko # the main title
 
-tagline: Tech Lead Manager on the PyTorch TPU team.<br>Pushing models to peak efficiency on TPUs and GPUs, and experimenting with AI agents to automate that work. # subtitle
+tagline: Tech Lead Manager on the PyTorch TPU team. # subtitle
 
 description: >- # used by seo meta and the atom feed
   Notes on ML performance — optimizing and scaling models for training and
@@ -28,7 +28,7 @@ github:
   username: vlasenkoalexey # change to your GitHub username
 
 twitter:
-  username: # change to your Twitter username
+  username: AlekseyVlasenko
 
 social:
   # Change to your full name.
@@ -40,6 +40,7 @@ social:
     # The first element serves as the copyright owner's link
     - https://github.com/vlasenkoalexey
     - https://www.linkedin.com/in/oleksiyvlasenko
+    - https://x.com/AlekseyVlasenko
 
 # Site Verification Settings
 webmaster_verifications:
