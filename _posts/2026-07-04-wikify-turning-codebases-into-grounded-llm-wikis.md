@@ -1,11 +1,11 @@
 ---
-title: "🧠 Wikify repo — turning codebases into grounded LLM wikis"
+title: "🧠 wikify repo — turning codebases into grounded LLM wikis"
 date: 2026-07-04
 categories: [Machine Learning, Agents]
 tags: [autoresearch, llm-wiki, wikify, scip, grounding, code-comprehension]
 image:
   path: /assets/images/wikify-turning-codebases-into-grounded-llm-wikis/hero.jpeg
-  alt: "Wikify repo — turning codebases into grounded LLM wikis"
+  alt: "wikify repo — turning codebases into grounded LLM wikis"
 ---
 
 For the [TPU Model Performance Auto-optimization](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki) project introduced in the [first post]({% post_url 2026-05-01-tpu-model-performance-auto-optimization %}) of this series we proposed to use an **LLM wiki** to store information about model optimizations, experiment results and relevant codebases. But we didn't spend any time justifying that decision.
