@@ -27,6 +27,8 @@ So I built wikify-repo that addresses both of those problems:
 
 The idea is simple: record every class, method, and their relationships with SCIP, then spend the LLM annotating only the most central ~20% of nodes — enough to explain ~80% of the repo, while the rest still get a deterministic catalog page so nothing is dropped. A citation linter acts as a hard build gate: every claim must cite a compiler-resolved symbol, or the page doesn't ship. Then everything lands in the existing LLM wiki with core concepts connected. A single /wikify-ingest-repo skill handles the whole ingestion process end-to-end.
 
+Now all repos referenced in the TPU Performance Auto-optimization project (https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki) are re-ingested using the wikify-repo tool.
+
 Full write-up: https://vlasenkoalexey.github.io/2026/07/wikify-turning-codebases-into-grounded-llm-wikis/
 
 The tool: https://github.com/vlasenkoalexey/wikify-repo
