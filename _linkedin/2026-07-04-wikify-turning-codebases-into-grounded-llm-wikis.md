@@ -8,7 +8,7 @@ post_url: https://vlasenkoalexey.github.io/2026/07/wikify-turning-codebases-into
 
 Your agent doesn't need to grep your code. It needs a map of it.
 
-Out of the box an LLM knows your codebases as fuzzy training-data memories of some older version. Giving the agent a checkout helps, but grep returns text matches, not understanding — and every session re-discovers the same code structure from scratch. Ingesting the codebase into an LLM wiki — an annotated map the agent reads before touching the source — is what unlocks the real capabilities:
+In my TPU model performance auto-optimization work, almost every step the agent takes runs through code: the model under optimization, the framework it executes on (PyTorch, JAX, TorchTPU), and the reference implementations it borrows ideas from (MaxText, tokamax). Out of the box an LLM knows these codebases as fuzzy training-data memories of some older version. Giving the agent a checkout helps, but grep returns text matches, not understanding — and every session re-discovers the same code structure from scratch. Ingesting the codebases into the LLM wiki — an annotated map the agent reads before touching the source — is what unlocks the real capabilities:
 
 - Efficient navigation: overview page → concept page → exact file and line. Minimal context, no directory archaeology.
 - Grounded internals answers: "how does chunked cross-entropy work here?" answered from pages that cite real symbols, one hop from pinned source.
@@ -16,9 +16,7 @@ Out of the box an LLM knows your codebases as fuzzy training-data memories of so
 - Extracting optimizations from reference implementations: kernels and sharding tricks in MaxText become named, citable concepts to compare your model against.
 - Migration between codebases: HuggingFace PyTorch → JAX, or MaxText → TorchTitan, becomes a mapping between two grounded descriptions.
 
-Getting there took three attempts.
-
-First the naive method: just tell the agent to "ingest this codebase" like an article. Better than nothing — but shallow, wasteful, and the summaries drift the moment the code changes.
+My first approach was the naive method: just tell the agent to "ingest this codebase" like an article. Better than nothing — but shallow, wasteful, and the summaries drift the moment the code changes.
 
 Then off-the-shelf tools (graphify, understand-anything). Two dealbreakers: they store results in proprietary black-box formats you can't share as a git repo, and they parse code with AST — syntactic only, so they see that a name appears, not which symbol it refers to.
 
