@@ -8,24 +8,21 @@ post_url: https://vlasenkoalexey.github.io/2026/07/wikify-turning-codebases-into
 
 Your agent doesn't need to grep your code. It needs a map of it.
 
-When working on the TPU model performance auto-optimization project, I realized that there is a lot of value in putting relevant codebases into the same place and ingesting them into an LLM wiki. Out of the box an LLM knows these codebases as fuzzy training-data memories of some older version. Giving the agent access to the raw codebase helps, but grep returns text matches, not understanding — and every session re-discovers the same code structure from scratch. Ingesting the codebases into the LLM wiki — an annotated map the agent reads before touching the source — is what unlocks the real capabilities:
+When working on the TPU model performance auto-optimization project, I realized that there is a lot of value in putting relevant codebases into the same place and ingesting them into an LLM wiki. Giving the agent access to the raw codebase helps, but grep returns text matches, not understanding — and every session re-discovers the same code structure from scratch. Ingesting the codebases into the LLM wiki — an annotated map the agent reads before touching the source — is what unlocks the real capabilities:
 
-- Efficient navigation: overview page → concept page → exact file and line. Minimal context, no directory archaeology.
-- Grounded internals answers: "how does chunked cross-entropy work here?" answered from pages that cite real symbols, one hop from pinned source. This greatly reduces agents hallucinating answers without grounding them in real understanding.
+- Efficient navigation: overview page → concept page → exact file and line.
+- Grounded internals answers: "how does chunked cross-entropy work here?" answered from pages that cite real symbols, one hop from pinned source.
 - Cross-repo stack traces: follow a crash or a suspicious HLO op end-to-end — TorchTitan → PyTorch → TorchTPU → XLA → libtpu driver.
 - Extracting optimizations from reference implementations: sharding and optimization tricks from MaxText, kernels from tokamax.
-- Migration between codebases: HuggingFace PyTorch → JAX, or MaxText → TorchTitan, becomes a mapping between two grounded descriptions. When migrating, the agent has full context of the codebase it is migrating from and migrating to, which makes the process a one-shot prompt in most cases.
+- Migration between codebases: HuggingFace PyTorch → JAX, or MaxText → TorchTitan, becomes a mapping between two grounded descriptions.
 
 But what does it mean to ingest a codebase in practice? My first approach was the naive method: just tell the agent to "ingest this codebase" like an article. Better than nothing — but shallow, wasteful, and the summaries drift the moment the code changes.
 
 I explored tools that exist to map codebases, the most popular being graphify and understand-anything. But neither would work naturally for my use case because they store results in proprietary black-box formats you can't share as a git repo. And it turns out most of the tools for code mapping trade breadth of programming-language support for depth of actual codebase understanding. They parse code with AST — syntactic only, so they see that a name appears, not which symbol it refers to.
 
-So I built wikify-repo that addresses both of those problems:
+So I built wikify-repo that addresses these issues.
 
-- It relies on SCIP instead of AST — the real compiler/type-checker resolves every symbol, cross-file reference, and call path
-- It outputs the processed codebase as plain markdown in your own repo — shareable, diffable, readable by Claude Code, Codex, or Antigravity with nothing installed
-
-The idea is simple: record every class, method, and their relationships with SCIP, then spend the LLM annotating only the most central ~20% of nodes — enough to explain ~80% of the repo, while the rest still get a deterministic catalog page so nothing is dropped. A citation linter acts as a hard build gate: every claim must cite a compiler-resolved symbol, or the page doesn't ship. Then everything lands in the existing LLM wiki with core concepts connected. A single /wikify-ingest-repo skill handles the whole ingestion process end-to-end.
+It is relying on SCIP instead of AST for semantic code mapping. And it outputs results as a markdown files that can be added to a new or existing LLM wiki with core concepts connected. A single /wikify-ingest-repo skill handles the whole ingestion process end-to-end.
 
 Now all repos referenced in the TPU Performance Auto-optimization project (https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki) are re-ingested using the wikify-repo tool.
 
