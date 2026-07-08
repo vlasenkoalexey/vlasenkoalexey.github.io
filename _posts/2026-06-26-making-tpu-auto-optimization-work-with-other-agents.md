@@ -97,7 +97,7 @@ Andrej Karpathy published [a small set of principles](https://github.com/multica
 - Surgical Changes
 - Goal-Driven Execution
 
-The prompt has been productionized and now has 180K GitHub stars, so it's not niche. I adapted it into a [`/edit-model-code`](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/.claude/skills/edit-model-code/SKILL.md) skill that gets invoked before opening any file in the per-experiment fork.
+The prompt has been productionized and now has 180K GitHub stars, so it's not niche. I adapted it into a [`/edit-model-code`](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki/blob/main/.claude/skills/edit-model-code/SKILL.md) skill that gets invoked before opening any file in the per-experiment fork. (Each experiment's fork is a [`git worktree`](https://git-scm.com/docs/git-worktree) of the shared trunk on its own branch — isolated working tree so concurrent runs on different clusters never collide, shared object store so a `supported` result merges straight back with no copy. Earlier runs used a full `cp -r` clone; the worktree form is a drop-in with the same on-disk layout.)
 
 I didn't run a proper before/after A/B, but the Antigravity/Gemini experiment failure rate from "wrong or overly aggressive code change" dropped visibly once the skill was in place.
 
