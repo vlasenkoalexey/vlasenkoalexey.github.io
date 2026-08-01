@@ -1,5 +1,5 @@
 ---
-title: "🔁 Making Andrej Karpathy's autoresearch production-ready"
+title: "Making Andrej Karpathy's autoresearch production-ready"
 date: 2026-06-05
 categories: [Machine Learning, Agents]
 tags: [autoresearch, llm-agents, optimization]
@@ -154,6 +154,9 @@ flowchart TB
     style STOP fill:#7f1d1d,stroke:#fca5a5,color:#fff
 ```
 {% endraw %}
+
+> **Update (2026-07-31).** `/loop` re-injection and the stop hook described above have since been retired. Both were nudges — they push the agent back toward the process, but never check whether it was actually followed. They are now replaced by a single mechanism: a **process-auditor sub-agent**, armed once at session start through the harness's own scheduler, that re-derives compliance from the artifacts on disk and returns paste-ready corrections into the agent's context. It is also the only thing that can authorize a clean stop, so premature-stop protection stopped being opt-in. Audit coverage went from roughly one iteration in eight to 100%. The full story is in [the Pallas kernel post]({% post_url 2026-07-31-teaching-the-autoresearch-loop-to-write-pallas-kernels %}#process-auditor).
+{: .prompt-info }
 
 ## 🏁 Closing thoughts
 

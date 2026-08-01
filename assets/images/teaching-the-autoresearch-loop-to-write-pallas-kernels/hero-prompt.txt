@@ -1,0 +1,85 @@
+Hero image prompt — "Teaching the auto-optimization loop to write Pallas kernels" (2026-07-31)
+Generated with Gemini. Output: hero_original.jpeg (full res) -> hero.jpeg (1200x670).
+
+House style for this blog's heroes, derived from posts 1-4: semi-realistic sci-fi concept
+art, dark futuristic lab at night, floor-to-ceiling window onto a neon cyberpunk skyline,
+dark holographic console, cyan/teal glow with warm amber accents and magenta rim light,
+androids as the agents, a few short legible labels embedded in the scene.
+
+--------------------------------------------------------------------------------
+
+Wide cinematic digital illustration, 16:9, 1200x670. Semi-realistic sci-fi concept-art style
+with clean linework and rich lighting - the look of a high-end game concept painting. Not
+photoreal, not flat vector, no cartoon outlines.
+
+Setting: a dark futuristic research lab at night. A floor-to-ceiling window across the back
+wall looks out on a neon cyberpunk city skyline in blues, teals and magenta. Deep navy and
+near-black interior lit almost entirely by the glow of the holograms. A long dark holographic
+console runs across the lower third of the frame.
+
+Fill the entire frame - holograms and panels extend to the edges, no empty margins, no large
+areas of flat dark. Dense and layered.
+
+ACROSS THE TOP, floating as a glowing holographic header spanning most of the width, in a
+clean bright cyan technical typeface, with a thin underline of light beneath it:
+   "Pallas Kernel Optimization"
+and directly under it, smaller and dimmer:
+   "an autoresearch loop"
+
+LEFT THIRD - the agent. A sleek blue-white humanoid android wearing an open lab coat, seen
+three-quarters from behind, standing at the console. One hand is inside the central hologram,
+actively redrawing a grid of tiles; the other holds up a small glowing card with a single line
+of text on it, as if committing a prediction before running the test. It is clearly the
+researcher driving everything, not an observer.
+
+CENTRE - what it is optimizing, a three-part data pipeline floating above the console:
+ - a very large dim translucent slab, its face divided into a regular grid of many small square
+   tiles like a chessboard of frosted glass, most tiles dark, labelled "HBM"
+ - a narrow glowing conduit carrying a few bright cyan tiles detached from the slab, travelling
+   rightward in single file
+ - a small intensely bright box catching them, a fraction of the slab's size, labelled "VMEM",
+   beside a dense square mesh of tiny glowing cells fed from two adjacent edges, pulsing warm
+   amber, labelled "MXU". A thinner return stream carries finished tiles back along a lower path.
+The dramatic size contrast between the huge dim slab and the tiny brilliant box is the most
+important visual relationship in the picture.
+
+ENCIRCLING that pipeline, a glowing ring of four holographic stations joined by flowing arrows
+reading clockwise, each a small floating panel with an icon and a caption beneath it:
+   1. a lightbulb - "hypothesis"
+   2. a block of amber code with a few visible lines - "write kernel"
+   3. a stopwatch beside a rising staircase chart - "measure"
+   4. a clipboard bearing a check mark - "verdict"
+The arrows are brightest between stations so the cycle reads unmistakably as repeating.
+
+RIGHT THIRD - the research trail. A tall glowing wall of many small filed record cards in a
+neat grid, receding slightly in perspective. Most cards carry a small dim red cross; a few
+scattered ones carry a bright green check. The overwhelming majority being crosses is
+deliberate and should be obvious at a glance. A faint arrow curves from the "verdict" station
+into the bottom of this wall, as though each finished experiment is filed there.
+
+LOWER RIGHT, on a console panel: a rising amber staircase curve climbing left to right, with a
+flat dashed reference line below it.
+
+TEXT - the image contains only these strings and nothing else:
+   Pallas Kernel Optimization
+   an autoresearch loop
+   HBM
+   VMEM
+   MXU
+   hypothesis
+   write kernel
+   measure
+   verdict
+No other words, captions, watermarks or UI text anywhere.
+
+Palette: deep navy and black interior, cyan and teal for the tiles, streams, title and record
+wall, warm amber for the compute mesh, the code and the staircase, magenta rim light from the
+city window. High contrast, volumetric haze, reflections on the console surface.
+
+--------------------------------------------------------------------------------
+
+Why these elements: the tiled slab -> VMEM -> MXU streaming is the canonical visual vocabulary
+for Pallas work (JAX grid/BlockSpec + the TPU memory-space cartoon), so the picture reads as
+kernel authoring rather than generic hardware. The prediction card, the named cycle stations,
+and the mostly-crosses record wall are what make it read as autoresearch rather than an agent
+running a tuning script.

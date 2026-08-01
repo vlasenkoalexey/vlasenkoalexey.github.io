@@ -1,5 +1,5 @@
 ---
-title: "🧠 wikify repo — turning codebases into grounded LLM wikis"
+title: "wikify repo — turning codebases into grounded LLM wikis"
 date: 2026-07-04
 categories: [Machine Learning, Agents]
 tags: [autoresearch, llm-wiki, wikify, scip, grounding, code-comprehension]

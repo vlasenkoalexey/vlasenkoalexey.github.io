@@ -1,5 +1,5 @@
 ---
-title: "🤝 Making TPU Model Performance Auto-optimization to work with other Agents"
+title: "Making TPU Model Performance Auto-optimization to work with other Agents"
 date: 2026-06-26
 categories: [Machine Learning, Agents]
 tags: [autoresearch, llm-agents, optimization, skills, sub-agents, codex, gemini]
