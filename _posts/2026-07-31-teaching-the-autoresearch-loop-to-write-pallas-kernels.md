@@ -14,6 +14,8 @@ This post is about pointing the same loop one level down the stack, at hand-writ
 
 That it works at all was not the surprising part — even the very first version of this project, before any specialized skills existed, could write and tune Pallas kernels in Claude Code. What I didn't expect is that the kernel lane would turn out to be a much better laboratory for the *process* than the model lane ever was. Two things came out of it that I hadn't planned for: a **second loop that optimizes the process instead of the code** — recursive self-improvement, narrow but real, and a good chunk of what the kernel lane runs on today was written by it rather than by me — and a **process-auditor sub-agent** that ended up being the single change that made unreliable models usable autonomously.
 
+To try it out yourself, see the [Starting Kernel optimization experiment](https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki#starting-kernel-optimization-experiment) section in the project's README.
+
 ## 🧬 Why kernels are a different problem than models
 
 On the surface it's the same problem, just smaller. Something is slow, form a falsifiable hypothesis about why, change code, measure, keep or discard. But two practical differences change the engineering completely.
