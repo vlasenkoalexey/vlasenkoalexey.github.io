@@ -1,0 +1,62 @@
+{
+  "channel_id": "UCOFAG2zVaGD4DYGvthcQ4pA",
+  "studio_url": "https://studio.youtube.com/channel/UCOFAG2zVaGD4DYGvthcQ4pA",
+  "name": "Aleksey Vlasenko",
+  "handle_candidates": ["@alekseyvlasenko", "@vlasenkoalexey", "@aleksey_vlasenko"],
+  "country": "US",
+  "default_language": "en",
+  "description": "Technical deep dives on training large models on TPUs with PyTorch: TorchTPU and torchtitan, distributed training internals (FSDP, expert parallelism, Muon and FlexShard), profiling with XProf, XLA and Pallas kernels, and autoresearch - letting coding agents run the performance-optimization loop end to end.\n\nI am a Tech Lead Manager on the PyTorch TPU team at Google. These videos are the long-form, visual companion to my blog, where every topic is also written up with code, profiles and numbers.\n\nBlog: https://vlasenkoalexey.github.io\nAutoresearch wiki: https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki\nGitHub: https://github.com/vlasenkoalexey\nLinkedIn: https://www.linkedin.com/in/oleksiyvlasenko\nX: https://x.com/AlekseyVlasenko\n\nNew videos every few weeks. Opinions are my own, not my employer's.",
+  "keywords": [
+    "PyTorch", "TPU", "distributed training", "FSDP", "Muon optimizer", "FlexShard",
+    "torchtitan", "TorchTPU", "XLA", "Pallas", "XProf", "profiling", "autoresearch",
+    "LLM agents", "machine learning performance", "MFU", "mixture of experts",
+    "expert parallelism", "model training", "deep learning systems"
+  ],
+  "links": [
+    {"title": "Blog", "url": "https://vlasenkoalexey.github.io"},
+    {"title": "Autoresearch wiki (GitHub)", "url": "https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki"},
+    {"title": "GitHub", "url": "https://github.com/vlasenkoalexey"},
+    {"title": "LinkedIn", "url": "https://www.linkedin.com/in/oleksiyvlasenko"},
+    {"title": "X", "url": "https://x.com/AlekseyVlasenko"}
+  ],
+  "playlists": [
+    {
+      "title": "Distributed training internals (PyTorch)",
+      "description": "How the pieces of a distributed PyTorch training step actually work: FSDP storage layouts, expert parallelism, optimizer resharding, Muon and FlexShard, DTensor placements, collectives and their overlap. Read from the source, with diagrams."
+    },
+    {
+      "title": "TPU auto-optimization with agents (autoresearch)",
+      "description": "The autoresearch series: an autonomous loop that proposes a hypothesis, patches model code, runs on real TPUs, reads the profile and files a verdict. Companion to the blog series at https://vlasenkoalexey.github.io/tags/autoresearch/"
+    },
+    {
+      "title": "PyTorch on TPU: TorchTPU and torchtitan",
+      "description": "Training PyTorch models on Cloud TPUs: the TorchTPU backend, torchtitan recipes, scan over layers, graph trainers, launching on GKE, and what the profiles say."
+    },
+    {
+      "title": "Profiling and compilers: XProf, XLA, HLO",
+      "description": "Reading an xprof trace, understanding HLO and fusions, XLA flags that matter, memory profiles, and the tooling (xprof-cli, perfsim overlays) used to find headroom."
+    },
+    {
+      "title": "Pallas kernels on TPU",
+      "description": "Writing and tuning Pallas/Mosaic kernels for TPU: attention, GEMM, normalization, MoE kernels, block sizes, VMEM, and having agents author kernels with adversarial verification."
+    },
+    {
+      "title": "Agent tooling: wikify, xprof-mcp, skills",
+      "description": "The tools that make coding agents useful for performance work: grounded codebase wikis (wikify-repo), the XProf MCP server and CLI, skills and sub-agents, process auditors."
+    }
+  ],
+  "sections": [
+    {"type": "multiplePlaylists", "title": "Series", "playlists": "all"}
+  ],
+  "upload_defaults": {
+    "visibility": "public",
+    "category": "Science & Technology",
+    "language": "English",
+    "license": "Standard YouTube License",
+    "made_for_kids": false,
+    "allow_embedding": true,
+    "comments": "on, hold potentially inappropriate for review",
+    "description_footer": "\n\n---\nBlog: https://vlasenkoalexey.github.io\nAutoresearch wiki: https://github.com/vlasenkoalexey/tpu_performance_autoresearch_wiki\nLinkedIn: https://www.linkedin.com/in/oleksiyvlasenko\nX: https://x.com/AlekseyVlasenko",
+    "tags": ["PyTorch", "TPU", "distributed training", "machine learning", "deep learning", "performance"]
+  }
+}
