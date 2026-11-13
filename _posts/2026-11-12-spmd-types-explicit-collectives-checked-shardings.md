@@ -5,7 +5,7 @@ categories: [Machine Learning, Distributed Training]
 tags: [pytorch, spmd_types, distributed-training, tensor-parallelism, sequence-parallelism, fsdp, dtensor, collectives]
 image:
   path: /assets/images/spmd-types-explicit-collectives-checked-shardings/hero.png
-  alt: "The four spmd_types types and their gradient types: Replicate and Partial swap, Invariant and Varying stay"
+  alt: "spmd_types: explicit collectives, checked shardings - Replicate, Invariant, Varying, Partial"
 ---
 
 I thought I had a pretty good understanding of how collectives work when you shard a model. Then I sat down with [spmd_types](https://github.com/meta-pytorch/spmd_types), and it still took me a while to really get it. This post is what I worked out, written down as a reference.
@@ -102,7 +102,7 @@ A tensor has one entry per axis. A batch of inputs that is split by example acro
 
 The last column is the design: Replicate and Partial swap, Invariant and Varying stay. The type of a gradient is decided by the type of the forward value and nothing else, so by checking the forward pass you know what every backward collective must be.
 
-![The gradient table: R and P swap, I and V stay](/assets/images/spmd-types-explicit-collectives-checked-shardings/hero.png)
+![The gradient table: R and P swap, I and V stay](/assets/images/spmd-types-explicit-collectives-checked-shardings/gradient-table.png)
 
 Notice that the book's "no subscript" maps to two types. That is the part that needs explaining, and it comes after Varying.
 
