@@ -18,13 +18,6 @@ If you would rather watch than read, the same material is a 20-minute video. The
 
 Take a weight matrix. Run an optimizer on all of it and look at the top four rows. Now run the same optimizer on just those four rows. With AdamW you get identical numbers. With Muon you do not.
 
-<video controls loop muted autoplay playsinline preload="metadata" width="100%" poster="/assets/images/muon-flexshard-whole-matrices/slice-test-poster.png">
-  <source src="/assets/images/muon-flexshard-whole-matrices/slice-test.webm" type="video/webm">
-  <source src="/assets/images/muon-flexshard-whole-matrices/slice-test.mp4" type="video/mp4">
-</video>
-
-_The same update computed on the whole matrix and on a slice of it: AdamW agrees, Muon does not (1.5x speed)._
-
 That one difference is why FlexShard exists. The rest of the post goes in this order:
 
 1. AdamW and FSDP, and why they fit together
