@@ -10,11 +10,9 @@ image:
 
 RL papers read like another language to me. I can read a PyTorch training loop without thinking about it, but a page of policy-gradient notation takes me a long time, and most of it turns out to be a few dozen lines of code once you find them. So I took one math question, followed it through the training loop of an open-source RL framework, and wrote down every model in the loop, what it computes, and every number that moves between them. This post is that walk-through, with code in place of the Greek letters.
 
-{% comment %}video not uploaded yet; restore with the real id
 If you would rather watch than read, the same material is a 58-minute video. The animations in this post are taken from it, so you can skip the video and keep reading.
 
-{% include embed/youtube.html id='VIDEO_ID_TBD' %}
-{% endcomment %}
+{% include embed/youtube.html id='ih3ilunuQgU' %}
 
 ## Eight answers, one number each
 
@@ -897,7 +895,7 @@ Underneath all three is one loop: generate, score, turn the scores into advantag
 - RLHF: [InstructGPT, arXiv 2203.02155](https://arxiv.org/abs/2203.02155); [PPO, arXiv 1707.06347](https://arxiv.org/abs/1707.06347); [GAE, arXiv 1506.02438](https://arxiv.org/abs/1506.02438)
 - GRPO and R1: [DeepSeekMath, arXiv 2402.03300](https://arxiv.org/abs/2402.03300); [DeepSeek-R1, arXiv 2501.12948](https://arxiv.org/abs/2501.12948); [Dr. GRPO, arXiv 2503.20783](https://arxiv.org/abs/2503.20783)
 - DPO: [Direct Preference Optimization, arXiv 2305.18290](https://arxiv.org/abs/2305.18290); [Zephyr, arXiv 2310.16944](https://arxiv.org/abs/2310.16944)
-{% comment %}- The video: [The RL Primer You'll Finally Understand: RLHF, PPO, GRPO, DPO](https://youtu.be/VIDEO_ID_TBD){% endcomment %}
+- The video: [The RL Primer You'll Finally Understand: RLHF, PPO, GRPO, DPO](https://youtu.be/ih3ilunuQgU)
 
 The worked numbers in this post (0.375, 0.5175, +1.21 and -0.72, the ratios 1.16 and 1.30, the critic loss 0.18 and the logit gradient -0.37, the k3 value 0.18 and the GRPO gradient -1.40, the DPO margin 0.1, sigmoid 0.525 and loss 0.644, the reward 0.9995, the entropy values and the loss-aggregation weights) come from running the snippets above with PyTorch 2.15 on CPU. Their inputs (the probabilities 0.50, 0.58, 0.65 and 0.30, the critic values, the DPO log-probs) are illustrative, chosen to match the video. The verl excerpts are from verl at commit `3fdf2b5488`; the online DPO loss is from verl-recipe's `spin/core_algos.py`, which last changed in commit `21892b92`.
 
