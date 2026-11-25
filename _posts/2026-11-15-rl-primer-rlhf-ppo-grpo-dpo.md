@@ -3,6 +3,7 @@ title: "The RL Primer You'll Finally Understand: RLHF, PPO, GRPO, DPO"
 date: 2026-11-15
 categories: [Machine Learning, Reinforcement Learning]
 tags: [pytorch, reinforcement-learning, rlhf, ppo, grpo, dpo, verl, post-training]
+math: true
 image:
   path: /assets/images/rl-primer-rlhf-ppo-grpo-dpo/hero.png
   alt: "The RL Primer You'll Finally Understand: PPO, GRPO and DPO, one prompt followed through the training loop"
@@ -79,6 +80,10 @@ By 2022 the recipe for a useful language model was: pretrain on a large part of 
 loss = F.cross_entropy(logits.view(-1, vocab), reference_tokens.view(-1))
 ```
 
+As a formula, with $$y_t$$ the reference token at position $$t$$ and $$p_\theta$$ the model's probability for it:
+
+$$ L_{\text{SFT}} = -\frac{1}{T} \sum_{t=1}^{T} \log p_\theta(y_t \mid x, y_{<t}) $$
+
 Imitation has a ceiling: the model can only be as good as the answers someone wrote, and for most of what we want from an assistant nobody can write the ideal answer. But show a person two replies and they can tell you which is better in seconds. Ranking is easy where writing is hard.
 
 A ranking is not a target to copy; it is a judgment about something the model produced. To learn from it the model has to produce answers, have them judged, and shift toward the better ones. Produce, get judged, adjust: that is reinforcement learning.
@@ -98,6 +103,10 @@ Step 2's loss comes back in DPO; for one ranked pair (a sketch, ours):
 ```python
 loss = -F.logsigmoid(reward_model(x, y_chosen) - reward_model(x, y_rejected))
 ```
+
+With $$r$$ the reward model, $$y_w$$ the chosen answer, $$y_l$$ the rejected one and $$\sigma$$ (sigma) the sigmoid:
+
+$$ L = -\log \sigma\big(r(x, y_w) - r(x, y_l)\big) $$
 
 PPO was not built for language: it was published in 2017 ([arXiv 1707.06347](https://arxiv.org/abs/1707.06347)) and tested on simulated robots and Atari. What it offers is stability; it limits how far one update can move the policy. People preferred the answers of a 1.3B-parameter model trained this way over those of the 175B GPT-3, more than a hundred times larger. Later that year ChatGPT was trained, in the words of its [launch post](https://openai.com/index/chatgpt/), "using the same methods as InstructGPT, but with slight differences in the data collection setup".
 
@@ -184,6 +193,10 @@ print(f"{entropy_from_logits(fair).item():.3f}",
 0.693 0.056
 ```
 
+The formula it implements, with $$p(v)$$ the probability of vocabulary entry $$v$$ at one position:
+
+$$ H = -\sum_{v} p(v) \log p(v) $$
+
 A slow decline is healthy. A collapse to nearly zero means the model writes the same answer every time, stops exploring, and the reward curve stalls. A close cousin is **perplexity**, which scores only the sampled tokens: the exponential of their average negative log-probability.
 
 ```python
@@ -196,6 +209,10 @@ print(f"{torch.exp(-logp.mean()).item():.2f}")
 2.01
 ```
 
+With $$a_t$$ the sampled token at position $$t$$:
+
+$$ \text{PPL} = \exp\Big(-\frac{1}{T} \sum_{t=1}^{T} \log p(a_t)\Big) $$
+
 verl uses perplexity to check that the two copies of the model in the loop agree; that comes up under PPO.
 
 ![The entropy curve: a slow decline is healthy, a collapse to zero means the model stopped exploring](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/entropy-perplexity.png)
@@ -203,6 +220,10 @@ verl uses perplexity to check that the two copies of the model in the loop agree
 ## Advantage: RL is weighted fine-tuning
 
 How does one number become a gradient? The goal is to raise the average score of the answers the model samples. We cannot backpropagate through that score: picking a token is a discrete choice, and the scorer is a Python function. The policy gradient theorem gives a way around it. The gradient of the average score is the average, over sampled answers, of the score times the gradient of the log-probability of the sampled tokens. In words: make the tokens of answers that scored well more likely, in proportion to the score.
+
+In symbols: $$J$$ is the average score, $$\pi_\theta$$ (pi, the policy) is the model's probability of token $$a_t$$ given the prompt and the tokens so far $$s_t$$, and $$A_t$$ is the weight on that token, `A` in the code below. The theorem is on the left, the loss whose gradient it is on the right:
+
+$$ \nabla_\theta J = \mathbb{E}\Big[\sum_t A_t \, \nabla_\theta \log \pi_\theta(a_t \mid s_t)\Big] \qquad L_{\text{PG}} = -\frac{1}{T} \sum_t A_t \log \pi_\theta(a_t \mid s_t) $$
 
 You already know this loss. Fine-tuning minimizes minus the log-probability of every training token. The policy-gradient loss is the same sum over the model's own sample, with each term multiplied by a weight `A`. Set every weight to 1 and it is fine-tuning on your own samples:
 
@@ -311,6 +332,10 @@ The correction can only be trusted while the two policies are close, so PPO clip
     pg_losses = torch.where(advantages < 0, clip_pg_losses2, clip_pg_losses1)
 ```
 
+As a formula, with $$\rho_t$$ (rho) the ratio, `ratio`; $$A_t$$ the advantage; and $$\epsilon$$ (epsilon) the clip range, `cliprange`:
+
+$$ \rho_t = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\text{old}}(a_t \mid s_t)} \qquad L_t = -\min\big(\rho_t A_t,\ \text{clip}(\rho_t,\, 1 - \epsilon,\, 1 + \epsilon)\, A_t\big) $$
+
 `response_mask` is 1 on the tokens the model generated and 0 on padding. Every loss and metric averages over the 1s; the prompt is context, never a target. Two of the logged metrics are worth watching: `pg_clipfrac` is the fraction of tokens where the clip is active, and `ppo_kl` is the average drift of the log-probs since sampling. The token losses are then averaged over the mini-batch, and that one number is what `backward` sees.
 
 The defaults are `clip_ratio: 0.2` on both sides, a band from 0.8 to 1.2, and `clip_ratio_c: 3.0`. Wrap those lines as `ppo_token_losses(log_prob, old_log_prob, advantages, response_mask)` and run them on the `72` at the end of a correct answer, sampled at 0.50 with advantage +1. In mini-batch B one update has lifted it to 0.58; in mini-batch D three updates have lifted it to 0.65:
@@ -385,6 +410,10 @@ k2 0.24
 k3 0.193
 ```
 
+The three estimators, with $$\pi$$ the policy's probability of the sampled token, $$\pi_{\text{ref}}$$ the reference's, and $$r = \pi_{\text{ref}} / \pi$$:
+
+$$ k_1 = \log \frac{\pi}{\pi_{\text{ref}}} \qquad k_2 = \frac{1}{2} \Big(\log \frac{\pi}{\pi_{\text{ref}}}\Big)^2 \qquad k_3 = r - \log r - 1 $$
+
 k1 is the plain log of the ratio, about 0.7. The default for the loss is k3, `low_var_kl`: always non-negative and much less noisy than k1.
 
 The penalty discourages reward hacking, odd language and collapse onto one style. It is optional: verl only creates the reference model if a KL term is on, and both switches default to off ([`verl/trainer/ppo/utils.py:75-79`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/utils.py#L75-L79), re-wrapped to fit the page):
@@ -438,7 +467,11 @@ Back to the baseline. Classic PPO gets it from a **critic**: a second network, u
     return advantages, returns
 ```
 
-verl's defaults are `gamma: 1.0` and `lam: 1.0`, and the reward sits only on the last token, so the sum collapses: every middle guess is added once and subtracted once, leaving the final reward minus the guess at this token. Run it on our correct answer `48 + 24 = 72 #### 72` as 7 tokens, with illustrative critic values rising from 0.4 to 0.94. The example skips the last line, `masked_whiten`, which subtracts the batch mean from the advantages and divides by the batch standard deviation (so a small positive advantage can come out negative):
+The recursion, with $$r_t$$ the reward on token $$t$$, $$V_t$$ the critic's value (`values`), $$\delta_t$$ (delta) the surprise, $$\gamma$$ and $$\lambda$$ the code's `gamma` and `lam`, and $$A_t$$ the advantage (`lastgaelam`):
+
+$$ \delta_t = r_t + \gamma V_{t+1} - V_t \qquad A_t = \delta_t + \gamma \lambda A_{t+1} \qquad \text{return}_t = A_t + V_t $$
+
+verl's defaults are `gamma: 1.0` and `lam: 1.0`, and the reward sits only on the last token, so the sum collapses: every middle guess is added once and subtracted once, leaving the final reward minus the guess at this token, $$A_t = R - V_t$$. Run it on our correct answer `48 + 24 = 72 #### 72` as 7 tokens, with illustrative critic values rising from 0.4 to 0.94. The example skips the last line, `masked_whiten`, which subtracts the batch mean from the advantages and divides by the batch standard deviation (so a small positive advantage can come out negative):
 
 ```python
 rewards = torch.tensor([[0, 0, 0, 0, 0, 0, 1.0]])
@@ -601,6 +634,10 @@ advantages per answer [ 1.21 -0.72 -0.72  1.21 -0.72 -0.72  1.21 -0.72]
 answer 0, every token [1.21 1.21 1.21 1.21 1.21 1.21 1.21]
 ```
 
+For answer $$i$$ in a group with scores $$R$$, and every token of that answer:
+
+$$ A_i = \frac{R_i - \text{mean}(R)}{\text{std}(R) + \epsilon} $$
+
 The standard deviation is about 0.52 because `torch.std` divides by n - 1. Each correct answer gets +1.21 and each wrong one -0.72 on every token: GRPO gives up per-token credit and judges the answer as a whole (the ratio and clip still act per token). Dividing by the std puts every prompt's advantages on one scale, whatever the range of its scores. The loss is PPO's clipped loss plus the KL term. The function returns the same tensor twice because there is no critic to train on returns.
 
 <video controls loop muted autoplay playsinline preload="metadata" width="100%" poster="/assets/images/rl-primer-rlhf-ppo-grpo-dpo/group-baseline-poster.png">
@@ -750,17 +787,19 @@ A rule needs an answer that can be checked. Is this reply clear? Polite? The sum
 
 ## DPO: the policy is the reward model
 
-DPO starts from PPO's objective, reward minus a KL leash, and gets to a loss with no reward in it in five lines. Here `pi` is the policy, `pi_ref` the frozen reference, `r` the reward, and `beta` how hard the leash pulls (0.1 in the example below):
+DPO starts from PPO's objective, reward minus a KL leash, and gets to a loss with no reward in it in five lines. Here $$\pi$$ is the policy, $$\pi_{\text{ref}}$$ the frozen reference, $$r$$ the reward, $$y_w$$ and $$y_l$$ the chosen and the rejected answer, and $$\beta$$ (beta) how hard the leash pulls (0.1 in the example below):
 
-```text
-objective      maximize  E[r(x, y)] - beta * KL(pi || pi_ref)
-its optimum    pi*(y|x) = pi_ref(y|x) * exp(r(x, y) / beta) / Z(x)
-solve for r    r(x, y) = beta * log(pi*(y|x) / pi_ref(y|x)) + beta * log Z(x)
-preference     P(chosen beats rejected) = sigmoid(r_chosen - r_rejected)
-put 3 in 4     beta * log Z(x) is the same for both answers and cancels
-```
+$$ \max_{\pi} \ \mathbb{E}\big[r(x, y)\big] - \beta \, \text{KL}(\pi \,\|\, \pi_{\text{ref}}) \tag{1} $$
 
-Line 2 says the best policy under a leash is the reference, reweighted toward high-reward answers; `Z` only normalizes, and depends on the prompt alone. Line 3 turns that around: any policy implies a reward under which it would be the optimum. DPO does not assume the model is optimal; it trains the policy until its implied reward ranks the labeled pairs correctly. Line 4 is the Bradley-Terry model, the same pairwise sigmoid that trained RLHF's reward model. What is left after line 5: take the policy's log-ratio to the reference for the chosen and the rejected answer, subtract, scale by beta, and minimize minus the log-sigmoid.
+$$ \pi^*(y \mid x) = \frac{1}{Z(x)} \, \pi_{\text{ref}}(y \mid x) \, \exp\big(r(x, y) / \beta\big) \tag{2} $$
+
+$$ r(x, y) = \beta \log \frac{\pi^*(y \mid x)}{\pi_{\text{ref}}(y \mid x)} + \beta \log Z(x) \tag{3} $$
+
+$$ P(y_w \text{ beats } y_l) = \sigma\big(r(x, y_w) - r(x, y_l)\big) \tag{4} $$
+
+$$ L_{\text{DPO}} = -\log \sigma\Big(\beta \Big[\log \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\Big]\Big) \tag{5} $$
+
+Line 1 is the objective. Line 2 says the best policy under a leash is the reference, reweighted toward high-reward answers; $$Z$$ only normalizes, and depends on the prompt alone. Line 3 turns that around: any policy implies a reward under which it would be the optimum. DPO does not assume the model is optimal; it trains the policy until its implied reward ranks the labeled pairs correctly. Line 4 is the Bradley-Terry model, the same pairwise sigmoid that trained RLHF's reward model. Put line 3 into line 4 and $$\beta \log Z(x)$$, the same for both answers, cancels. What is left is line 5: take the policy's log-ratio to the reference for the chosen and the rejected answer, subtract, scale by beta, and minimize minus the log-sigmoid. In the code below those are `pi_logratios`, `ref_logratios` and `logits`, grouped per model instead of per answer.
 
 ![The DPO loss as a code sketch with its symbols named, and the chosen and rejected answers' log-ratios to the reference](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/dpo-derivation.png)
 
