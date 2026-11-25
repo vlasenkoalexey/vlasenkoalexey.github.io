@@ -59,15 +59,7 @@ print(compute_score("She sold 72 clips.", "72"))
 
 Eight answers, one number each, and a few seconds later the model has learned from it. verl is just a concrete place to point at; the same steps exist in every RL framework. You only need to know how a model is trained and what fine-tuning is.
 
-The post goes in this order:
-
-1. where RL for language models came from: why fine-tuning was not enough, RLHF, and three eras
-2. the two questions every setup answers, and the scorer as a slot
-3. the vocabulary, the dashboard curves, and advantage: RL as weighted fine-tuning
-4. PPO: two copies of the model, the ratio and the clip, the KL leash, the critic, one step through four models
-5. DeepSeek-R1 and GRPO: rule rewards, the group as the baseline, one step, the knobs
-6. DPO: the policy as its own reward model, one step, the online variant
-7. what the reward means to each algorithm, which one to use, and a cheat sheet
+The post goes in the order that builds: where RL for language models came from, the vocabulary, PPO piece by piece, then GRPO and DPO as PPO with parts removed, and at the end which one to use.
 
 ## Why fine-tuning was not enough
 
@@ -104,7 +96,7 @@ PPO was not built for language: it was published in 2017 ([arXiv 1707.06347](htt
 
 ## Three eras, and what each one removed
 
-That recipe costs people; models (a policy, a reward model and, as we will see, a frozen reference and a critic); and a slow loop that generates text every step. The next few years removed those costs one at a time:
+That recipe is expensive in three ways. It needs people to rank answers. It needs several large models: a policy, a reward model and, as we will see, a frozen reference and a critic. And its loop is slow, because it generates text at every step. The next few years removed those costs one at a time:
 
 | Era | Method | Where the score comes from | What it removed |
 |---|---|---|---|
@@ -161,7 +153,7 @@ In multi-turn agent training a trajectory also includes tool calls and their out
 
 ### The two curves on every dashboard
 
-Average the scores over a step and you get one point on the **reward curve**; for us, the fraction correct. It should climb and level off. Flat means no learning; suspiciously fast, especially with a learned reward model, can mean the model is gaming the scorer.
+Average the scores over a step and you get one point on the **reward curve**; for us, the fraction correct. It should climb and level off. Flat means no learning; suspiciously fast, especially with a learned reward model, can mean **reward hacking**: the model has found answers the scorer likes that are not actually better.
 
 The second curve is **entropy**: how spread out the model's next-token distribution is at each position. verl logs the average entropy of the generated tokens every step ([`verl/utils/torch_functional.py:231-245`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/utils/torch_functional.py#L231-L245), docstring trimmed):
 
@@ -195,15 +187,15 @@ print(f"{torch.exp(-logp.mean()).item():.2f}")
 2.01
 ```
 
-verl computes it with the trainer's and with the sampler's probabilities (two copies, see below) and logs the ratio ([`rollout_corr_helper.py:944-990`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/rollout_corr_helper.py#L944-L990)). With matching weights and numerics it sits at 1.
+verl uses perplexity to check that the two copies of the model in the loop agree; that comes up under PPO.
 
 ![The entropy curve: a slow decline is healthy, a collapse to zero means the model stopped exploring](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/entropy-perplexity.png)
 
 ## Advantage: RL is weighted fine-tuning
 
-How does one number become a gradient? Take the log-probability of every token the model produced and push it up or down in proportion to the **advantage**: how much better this outcome was than what we expected from here.
+How does one number become a gradient? The goal is to raise the average score of the answers the model samples. We cannot backpropagate through that score: picking a token is a discrete choice, and the scorer is a Python function. The policy gradient theorem gives a way around it. The gradient of the average score is the average, over sampled answers, of the score times the gradient of the log-probability of the sampled tokens. In words: make the tokens of answers that scored well more likely, and the tokens of answers that scored badly less likely.
 
-You already know this loss. Fine-tuning minimizes minus the log-probability of every training token; the policy-gradient loss is the same sum over the model's own sample, each term multiplied by its advantage. Set every advantage to 1 and it is fine-tuning on your own samples:
+You already know this loss. Fine-tuning minimizes minus the log-probability of every training token. The policy-gradient loss is the same sum over the model's own sample, with each term multiplied by a weight `A`. Set every weight to 1 and it is fine-tuning on your own samples:
 
 ```python
 torch.manual_seed(0)
@@ -214,35 +206,32 @@ tokens = torch.tensor([3, 1, 4, 1, 5, 9, 2])  # the model's own sampled answer
 logp = torch.log_softmax(logits, -1).gather(-1, tokens[:, None]).squeeze(-1)
 
 sft_loss = -logp.mean()        # fine-tuning: cross-entropy on these tokens
-A = torch.ones(7)              # every advantage set to 1
-pg_loss = -(A * logp).mean()   # policy gradient, advantage-weighted
+A = torch.ones(7)              # every weight set to 1
+pg_loss = -(A * logp).mean()   # policy gradient: weighted cross-entropy
 print(torch.allclose(sft_loss, pg_loss))
-
-# verl's form: -A * ratio with ratio = exp(logp - old_logp);
-# at ratio = 1 its gradient is the same
-ratio = torch.exp(logp - logp.detach())  # old_logp = logp: ratio = 1
-A = torch.tensor([1.21] * 7)
-g1, = torch.autograd.grad(-(A * ratio).mean(), logits, retain_graph=True)
-g2, = torch.autograd.grad(-(A * logp).mean(), logits)
-print(torch.allclose(g1, g2))
 ```
 
 ```text
 True
-True
 ```
 
-So RL, here, is **advantage-weighted fine-tuning**: the advantage decides which of the model's own tokens to reinforce and which to push away.
+So RL, here, is **weighted fine-tuning** on the model's own answers. The weight decides which tokens to reinforce and which to push away.
 
 ![Supervised fine-tuning and the policy gradient side by side; with every advantage at 1 they are the same loss](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/sft-vs-pg.png)
 
-The advantage is stored per token, shape `(batch, response_length)`; a critic gives every token its own value, a group baseline (GRPO) gives all tokens of an answer the same one. Why "better than expected" and not the raw reward? If every answer to an easy question scores 1, pushing them all up teaches almost nothing and adds variance. Subtracting a baseline, an estimate of the expected reward, keeps the average gradient direction and cuts the variance dramatically. PPO, GRPO and the long list of estimators in verl (it registers 14) are mostly different answers to one question: where does the baseline come from?
+What should the weight be? The raw score works, but it is noisy: if every answer to an easy question scores 1, pushing them all up teaches almost nothing. So we subtract a **baseline**, an estimate of the score we expected, and call the result the **advantage**: how much better this outcome was than expected. The baseline costs nothing on average. It is the same whichever token was sampled, and the token probabilities always sum to 1, so a constant weight on all of them pushes in directions that cancel. What it removes is variance.
+
+The advantage is stored per token, shape `(batch, response_length)`. A critic gives every token its own value; a group baseline (GRPO) gives all tokens of an answer the same one. PPO, GRPO and the long list of estimators in verl (it registers 14) are mostly different answers to one question: where does the baseline come from?
 
 ## PPO: the building blocks
 
+PPO takes that loss and adds four things, built here in this order: a second copy of the model for fast sampling, a ratio and a clip so that one batch of samples can feed several updates, a leash to the starting model, and a critic that supplies the baseline.
+
 ### Two copies of the model
 
-There are two copies of the model: the **trainer**, with weights, gradients and optimizer state, and the **sampler**, an inference engine such as vLLM. The sampler generates one big batch; the trainer splits it into mini-batches with one optimizer step each. verl's GSM8K GRPO example ([`run_qwen3_8b_fsdp.sh:28-40`](https://github.com/verl-project/verl/blob/3fdf2b5488/examples/grpo_trainer/run_qwen3_8b_fsdp.sh#L28-L40)) uses 1024 questions with 5 answers each (8 in our example) and mini-batches of 256 questions with all their answers: four weight updates per batch. The shape of it (a sketch, ours):
+There are two copies of the model. The **trainer** holds weights, gradients and optimizer state. The **sampler** is an inference engine such as vLLM, because generation dominates the step and a serving engine is much faster at it than a training framework. verl calls the trainer's copy the **actor** and the sampler's the **rollout**; both names appear below. By default the two share the same GPUs ([`hybrid_engine: true`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/config/ppo_trainer.yaml#L55-L60)), so the weights are in memory twice.
+
+The sampler generates one big batch; the trainer splits it into mini-batches with one optimizer step each. verl's GSM8K GRPO example ([`run_qwen3_8b_fsdp.sh:28-40`](https://github.com/verl-project/verl/blob/3fdf2b5488/examples/grpo_trainer/run_qwen3_8b_fsdp.sh#L28-L40)) uses 1024 questions with 5 answers each (8 in our example) and mini-batches of 256 questions with all their answers: four weight updates per batch, at a learning rate of 1e-6. The shape of it (a sketch, ours):
 
 ```python
 # one big batch, current weights W0
@@ -260,9 +249,11 @@ for mini in batch.split(256):
 sampler.load_weights(actor)
 ```
 
-Why split? Sampling is the bottleneck, and each optimizer step moves the weights by roughly one learning rate whatever the batch size, so four steps of 256 get four moves from the same samples. One update per batch is on-policy but wasteful; dozens train on stale data. With the default of one PPO epoch, each sequence is used in exactly one update.
+Why split? Not for memory; micro-batches take care of that. Sampling is the bottleneck, and each optimizer step moves the weights by roughly one learning rate whatever the batch size: more data gives a more precise direction, not a longer step. So four steps of 256 get four moves from the same samples. Training on samples from exactly the current weights is called **on-policy**. One update per batch stays on-policy but wastes the samples; dozens of updates train on stale data. A **PPO epoch** is one pass over the sampled batch, and with the default of one, each sequence is used in exactly one update.
 
-The cost is staleness: from update two on, the remaining mini-batches were sampled by weights that no longer exist. And even on update one, the inference engine's kernels and precision differ, so its probabilities are not bit-identical to the trainer's.
+The cost is staleness. The weights are shared by every token, so from update two on, the remaining mini-batches were sampled by weights that no longer exist. The ratio in the next section handles that.
+
+A second, smaller mismatch is there from the start: the inference engine's kernels and precision differ, so its probabilities are not bit-identical to the trainer's. By default verl does not train on the sampler's probabilities at all; the actor recomputes them. It monitors the mismatch by computing perplexity with both sets of probabilities and logging the ratio ([`rollout_corr_helper.py:944-990`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/rollout_corr_helper.py#L944-L990)), which sits at 1 when weights and numerics match.
 
 <video controls loop muted autoplay playsinline preload="metadata" width="100%" poster="/assets/images/rl-primer-rlhf-ppo-grpo-dpo/two-copies-poster.png">
   <source src="/assets/images/rl-primer-rlhf-ppo-grpo-dpo/two-copies.webm" type="video/webm">
@@ -273,7 +264,11 @@ _Trainer and sampler drift out of registration over four updates on one batch, a
 
 ### The ratio and the clip
 
-The fix is a per-token importance ratio, current probability over the probability under the weights that sampled it: `exp(log_prob - old_log_prob)`, against old log-probs recorded once before the first update. PPO's loss per token is minus the smaller of ratio x advantage and clipped ratio x advantage. This is verl's version ([`verl/trainer/ppo/core_algos.py:1336-1361`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L1336-L1361), re-wrapped to fit the page), which writes the minimum of the objective as a maximum of losses:
+The fix for staleness is a per-token **importance ratio**: the token's probability under the current weights over its probability under the weights that sampled it, `exp(log_prob - old_log_prob)`. The old log-probs are recorded once, before the first update.
+
+Why multiply by it? The gradient should average over what the current policy would sample, but the samples came from the old one. A token the current policy now picks 16% more often is under-represented in the batch by exactly that factor, so its term is weighted by 1.16. On the first update the ratio is 1, and the gradient of `-A * ratio` is then the gradient of `-A * logp`, the loss from the previous section.
+
+The correction can only be trusted while the two policies are close, so PPO clips it. Its loss per token is minus the smaller of ratio x advantage and clipped ratio x advantage. This is verl's version ([`verl/trainer/ppo/core_algos.py:1336-1361`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L1336-L1361), re-wrapped to fit the page), which writes the minimum of the objective as a maximum of losses:
 
 ```python
     negative_approx_kl = log_prob - old_log_prob
@@ -306,6 +301,8 @@ The fix is a per-token importance ratio, current probability over the probabilit
 
     pg_losses = torch.where(advantages < 0, clip_pg_losses2, clip_pg_losses1)
 ```
+
+`response_mask` is 1 on the tokens the model generated and 0 on padding. Every loss and metric averages over the 1s; the prompt is context, never a target. Two of the logged metrics are worth watching: `pg_clipfrac` is the fraction of tokens outside the band, and `ppo_kl` is the average drift of the log-probs since sampling. The token losses are then averaged over the mini-batch, and that one number is what `backward` sees.
 
 The defaults are `clip_ratio: 0.2` on both sides, a band from 0.8 to 1.2, and `clip_ratio_c: 3.0`. Wrap those lines as `ppo_token_losses(log_prob, old_log_prob, advantages, response_mask)` and run them on the `72` at the end of a correct answer, sampled at 0.50 with advantage +1. In mini-batch B one update has lifted it to 0.58; in mini-batch D three updates have lifted it to 0.65:
 
@@ -341,13 +338,13 @@ loss  [0.9 0.8 3. ]
 grad  [0.9 0.  0. ]
 ```
 
-Below 0.8 the push down stops, and the long shot's loss of 10 is capped at 3 x |A|. The clip is a cheap trust region: improve, but not far from the policy that collected the data. Since the ratio always compares with the sampling weights, the band limits the total drift over all four updates, which is why too many updates per batch backfire: more tokens land outside the band and their gradients go flat.
+Below 0.8 the push down stops, and the long shot's loss of 10 is capped at 3 times the size of the advantage. The clip is a cheap trust region: improve, but not far from the policy that collected the data. Since the ratio always compares with the sampling weights, the band limits the total drift over all four updates, which is why too many updates per batch backfire: more tokens land outside the band and their gradients go flat.
 
 ![The clip band from 0.8 to 1.2: the loss for positive and negative advantages, with 1.16 still pushed and 1.30 flat](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/clip-band.png)
 
 ### The leash: KL to a frozen reference
 
-The ratio keeps each update local. To keep the whole run from wandering off there is the **reference model**, a frozen copy of the starting model. The KL divergence measures how far the policy has moved from it; per token it comes down to two log-probabilities. The ratio compares with the sampling weights of a few updates ago; KL compares with the start. verl implements the usual per-token estimators ([`core_algos.py:2228-2245`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L2228-L2245); two branches and a citation comment trimmed):
+The ratio keeps each update local. To keep the whole run from wandering off there is the **reference model**, a frozen copy of the starting model. The KL divergence measures how far the policy has moved from it; per token it comes down to two log-probabilities. The sampled token is one draw from the policy, so its log-ratio to the reference is a one-sample estimate of the KL; that is why there are several estimators and why the plain one can go negative. The ratio compares with the sampling weights of a few updates ago; KL compares with the start. verl implements the usual per-token estimators ([`core_algos.py:2228-2245`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L2228-L2245); two branches and a citation comment trimmed):
 
 ```python
     if kl_penalty in ("kl", "k1"):
@@ -392,13 +389,19 @@ def need_reference_policy(
         or config.actor_rollout_ref.actor.use_kl_loss
 ```
 
-Classic PPO subtracts the KL from the reward (`use_kl_in_reward`); GRPO-style training adds it to the loss (`use_kl_loss`), commonly with `kl_loss_coef: 0.001`. DAPO and verl's Dr. GRPO recipe drop it: a rule reward has less to hack, reasoning wants to move far from the start, and no reference saves a model's memory and a forward pass per step. DPO goes the other way: the reference is built into its loss. An optional entropy bonus exists too; most GRPO recipes set `entropy_coeff` to 0 and rely on a higher upper clip and the KL leash instead, and verl logs entropy every step regardless.
+The KL can enter in two places. Classic PPO subtracts it from the reward (`use_kl_in_reward`), so it reaches the policy through the advantage like any other reward. GRPO-style training adds it to the loss (`use_kl_loss`), commonly with `kl_loss_coef: 0.001`, where it is differentiated directly. There is also an optional entropy bonus, which pays the model to keep its choices spread out. Put together, the actor's loss is (ours, condensed from [`verl/workers/utils/losses.py:162-180`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/workers/utils/losses.py#L162-L180)):
+
+```python
+actor_loss = pg_loss - entropy_coeff * entropy + kl_loss_coef * kl
+```
+
+Most GRPO recipes set `entropy_coeff` to 0. Some recent ones drop the leash as well, for example DAPO ([arXiv 2503.14476](https://arxiv.org/abs/2503.14476)), a 2025 GRPO variant: a rule reward has less to hack, reasoning wants to move far from the start, and no reference saves a model's memory and a forward pass per step. We come back to that under GRPO.
 
 ![The frozen reference on a leash: 0.60 under the policy against 0.30 under the reference, and how this differs from the importance ratio](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/kl-leash.png)
 
 ### The critic and GAE
 
-Back to the baseline. Classic PPO gets it from a **critic**: a second network, usually as large as the policy, whose scalar head predicts at every token the reward to expect from there. Advantages come from generalized advantage estimation, GAE ([arXiv 1506.02438](https://arxiv.org/abs/1506.02438)). Its building block is `delta`, the critic's one-step surprise: this token's reward, plus the guess at the next token, minus the guess here. GAE blends those surprises backwards through the response, with `gamma` (discount) and `lam` (how far back each surprise reaches). verl's loop ([`core_algos.py:244-263`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L244-L263), re-wrapped to fit the page):
+Back to the baseline. Classic PPO gets it from a **critic**: a second network, usually as large as the policy, whose scalar head predicts at every token the reward to expect from there. Advantages come from generalized advantage estimation, GAE ([arXiv 1506.02438](https://arxiv.org/abs/1506.02438)). Its building block is `delta`, the critic's one-step surprise (the TD-error in the code comment): this token's reward, plus the guess at the next token, minus the guess here. GAE blends those surprises backwards through the response, with `gamma` (discount) and `lam` (how far back each surprise reaches; below 1 it leans more on the critic's guesses and less on the sampled outcome). verl's loop ([`core_algos.py:244-263`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L244-L263), re-wrapped to fit the page):
 
 ```python
     with torch.no_grad():
@@ -426,22 +429,22 @@ Back to the baseline. Classic PPO gets it from a **critic**: a second network, u
     return advantages, returns
 ```
 
-verl's defaults are `gamma: 1.0` and `lam: 1.0`, and the reward sits only on the last token, so the sum collapses: every middle guess is added once and subtracted once, leaving the final reward minus the guess at this token. Run it, without the final whitening, on our correct answer `48 + 24 = 72 #### 72` as 7 tokens, with illustrative critic values rising from 0.4 to 0.94:
+verl's defaults are `gamma: 1.0` and `lam: 1.0`, and the reward sits only on the last token, so the sum collapses: every middle guess is added once and subtracted once, leaving the final reward minus the guess at this token. Run it on our correct answer `48 + 24 = 72 #### 72` as 7 tokens, with illustrative critic values rising from 0.4 to 0.94. The example skips the last line, `masked_whiten`, which subtracts the batch mean from the advantages and divides by the batch standard deviation:
 
 ```python
 rewards = torch.tensor([[0, 0, 0, 0, 0, 0, 1.0]])
-values  = torch.tensor([[0.40, 0.55, 0.65, 0.75, 0.85, 0.90, 0.94]])
+values  = torch.tensor([[0.40, 0.42, 0.45, 0.47, 0.55, 0.90, 0.94]])
 adv, ret = gae(rewards, values, torch.ones(1, 7))
 print("advantages", adv.numpy().round(2))
 print("returns   ", ret.numpy().round(2))
 ```
 
 ```text
-advantages [[0.6  0.45 0.35 0.25 0.15 0.1  0.06]]
+advantages [[0.6  0.58 0.55 0.53 0.45 0.1  0.06]]
 returns    [[1. 1. 1. 1. 1. 1. 1.]]
 ```
 
-Every token gets its own advantage: big while the outcome looked uncertain, almost none once it was clear. The return, advantage plus value, is the reward still to come; with one undiscounted reward at the end it is 1 on every token of a correct answer and 0 on a wrong one. The critic regresses onto the returns, with its own clipped loss.
+Every token gets its own advantage: big while the outcome looked uncertain, almost none once it was clear. The return, advantage plus value, is the reward still to come; with one undiscounted reward at the end it is 1 on every token of a correct answer and 0 on a wrong one. The critic is trained by regression onto the returns.
 
 ![The critic's per-token values under the answer, and the GAE recursion](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/gae.png)
 
@@ -450,9 +453,9 @@ Every token gets its own advantage: big while the outcome looked uncertain, almo
 Follow one PPO step through all four models.
 
 1. **Generate and score.** The prompt asks for reasoning ending in `####` and the answer, so the checker can find it. Ours ends `#### 72`; compared with the ground truth (which the model never sees) it scores 1, on the last token.
-2. **Three forward passes, no gradients.** Token ids travel, not the sampler's probabilities. The actor gives the final `72` 0.5 (log -0.7): the old log-probs. The reference gives it 0.3 (log -1.2), for the KL. The critic predicts the values above.
-3. **The driver** runs GAE: +0.6 on the first token, returns of 1. The reward splits here: the actor sees only advantages, the critic gets returns as its target. verl then whitens the advantages over the batch ([`masked_whiten`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/utils/torch_functional.py#L329-L346)); the example keeps the raw 0.6.
-4. **Two models train**, each with a second forward pass, gradients on. Say `48`, the first token, was sampled at 0.40 and an update has raised it to 0.44:
+2. **Three forward passes, no gradients.** Each model reads the prompt and the answer in one pass and, at every position, looks up the probability of the token that was actually written (the critic outputs a value instead). Token ids travel, not the sampler's probabilities. The actor gives the final `72` 0.5 (log -0.7): the old log-probs. The reference gives it 0.3 (log -1.2), for the KL. The critic predicts the values above.
+3. **The driver**, the single controller process that holds the batch, runs GAE: +0.6 on the first token, returns of 1. The reward splits here: the actor sees only advantages, the critic gets returns as its target. verl then whitens the advantages over the batch ([`masked_whiten`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/utils/torch_functional.py#L329-L346)); the example keeps the raw 0.6.
+4. **Two models train**, each with a second forward pass, gradients on. The second pass is needed because step 2 ran once, on the weights W0 that sampled the batch, and saved old log-probs for all four mini-batches. By the time a later mini-batch trains, earlier updates have changed the weights. Say `48`, the first token, was sampled at 0.40 and an update has raised it to 0.44:
 
 ```python
 # 1.0 and 0.6, from the GAE run above
@@ -484,7 +487,7 @@ d term / d logits [-0.37  0.2   0.11  0.07]
 
 The critic's gradient, value minus return, is -0.6, so its value moves up toward 1. For the actor, the term's derivative with respect to the log-prob is the term itself, -0.66; through the softmax the logit of `48` gets -0.66 x (1 - 0.44), about -0.37, and goes up, while every other logit gets +0.66 times its probability and goes down. Past a ratio of 1.2 all of these would be zero.
 
-Step 5 is the **sync**: the actor's new weights are copied to the rollout copy.
+Step 5 is the **sync**: the actor's new weights are copied to the rollout.
 
 <video controls loop muted autoplay playsinline preload="metadata" width="100%" poster="/assets/images/rl-primer-rlhf-ppo-grpo-dpo/ppo-step-poster.png">
   <source src="/assets/images/rl-primer-rlhf-ppo-grpo-dpo/ppo-step.webm" type="video/webm">
@@ -493,7 +496,7 @@ Step 5 is the **sync**: the actor's new weights are copied to the rollout copy.
 
 _One PPO step: token ids fan out to the actor, the reference and the critic; their per-token rows go to the driver; advantages and returns come back._
 
-Four large models, two of them training. And the critic is hard to train on sparse rewards: with the only signal at the last token, a good value for token seventeen is genuinely difficult. Can we get the baseline without a critic?
+Four large models, two of them training, and a fifth if the score comes from a learned reward model. And the critic is hard to train on sparse rewards: with the only signal at the last token, a good value for token seventeen is genuinely difficult. Can we get the baseline without a critic?
 
 ## DeepSeek-R1: a reward you can check
 
@@ -512,7 +515,7 @@ The paper says a neural reward model "may suffer from reward hacking"; a rule th
 
 On AIME 2024, R1-Zero's pass@1 (solved on the first try) rose from 15.6% at the start of training to 77.9% at the end. That is the current version of the paper (v2, and the Nature version); the January 2025 preprint reported 71.0%.
 
-Its answers also got longer, though nothing in the reward asks for length (in v2, part of that follows a raise of the maximum generation length from 32,768 to 65,536 tokens at step 8.2k). Generation is where the time goes, and it gets more expensive as the run succeeds. The settings (values from the paper; key names ours):
+Its answers also got longer, though nothing in the reward asks for length: the model found that reasoning for more tokens gets more answers right (in v2, part of the growth follows a raise of the maximum generation length from 32,768 to 65,536 tokens at step 8.2k). Generation is where the time goes, and it gets more expensive as the run succeeds. The settings (values from the paper; key names ours):
 
 ```text
 samples_per_question = 16
@@ -531,7 +534,7 @@ And there is no critic: sixteen answers per question were enough to tell which w
 
 ## GRPO: the group is the baseline
 
-GRPO, group relative policy optimization, from the DeepSeekMath paper ([arXiv 2402.03300](https://arxiv.org/abs/2402.03300)): sample several answers per prompt and let the group be the baseline. verl samples at `temperature: 1.0` by default, so the group shows what the policy really believes. The whole estimator ([`core_algos.py:304-331`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L304-L331), re-wrapped to fit the page), where `index` holds a prompt id per answer:
+GRPO, group relative policy optimization, from the DeepSeekMath paper ([arXiv 2402.03300](https://arxiv.org/abs/2402.03300)): sample several answers per prompt and let the group be the baseline. A larger group costs proportionally more generation and gives a steadier mean; verl's example uses 5, R1 used 16. verl samples at `temperature: 1.0` by default, so the group shows what the policy really believes. The whole estimator ([`core_algos.py:304-331`](https://github.com/verl-project/verl/blob/3fdf2b5488/verl/trainer/ppo/core_algos.py#L304-L331), re-wrapped to fit the page), where `index` holds a prompt id per answer:
 
 ```python
     scores = token_level_rewards.sum(dim=-1)
@@ -611,7 +614,7 @@ all correct           [0. 0. 0. 0. 0. 0. 0. 0.]
 
 That is what entropy collapse does to GRPO; it learns only from prompts at the edge of the model's ability. DAPO's **dynamic sampling** filters out groups with identical scores and keeps generating until the batch is full of mixed ones. In verl that is `algorithm.filter_groups.enable=True` ([`docs/algo/dapo.md`](https://github.com/verl-project/verl/blob/3fdf2b5488/docs/algo/dapo.md)).
 
-Does it work? In verl's published GSM8K scores ([`docs/algo/baseline.md`](https://github.com/verl-project/verl/blob/3fdf2b5488/docs/algo/baseline.md)), Qwen2.5-0.5B-Instruct solves 49.6% as released (a figure verl takes from the model's release blog), and after training on these ones and zeros, 56.7% with PPO and 54.3% with GRPO on a rank-32 LoRA adapter.
+Does it work? In verl's published GSM8K scores ([`docs/algo/baseline.md`](https://github.com/verl-project/verl/blob/3fdf2b5488/docs/algo/baseline.md)), Qwen2.5-0.5B-Instruct solves 49.6% as released (a figure verl takes from the model's release blog), and after training on these ones and zeros, 56.7% with PPO and 54.3% with GRPO on a rank-32 LoRA adapter. The two runs are not like-for-like: the GRPO one trains only the adapter, with different batch settings.
 
 ![GSM8K test score published by verl: 49.6 as released, 56.7 with PPO, 54.3 with GRPO-LoRA](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/grpo-gsm8k.png)
 
@@ -622,7 +625,7 @@ The same five steps with the same answer, so you can see what changes.
 1. **Generate and score** a group of eight answers, all tagged with one prompt id: 1, 0, 0, 1, 0, 0, 1, 0.
 2. **Two forward passes**, no gradients: the actor's old log-probs (log 0.5 for our final `72`) and the reference's (log 0.3). No critic, no value pass.
 3. **The driver** groups by prompt id: +1.21 on all seven tokens of our answer.
-4. **Only the actor trains**, with its own pass, because the passes run on different weights: step 2 ran once on W0 and saved old log-probs for all four mini-batches; update one (mini-batch A) turns W0 into W1; our answer, in mini-batch B, trains on W1, when W0's 0.5 exists only in the snapshot.
+4. **Only the actor trains**, with its own pass as in PPO. Update one (mini-batch A) turned W0 into W1; our answer, in mini-batch B, trains on W1, when W0's 0.5 exists only in the snapshot.
 5. **Sync**, exactly as in PPO.
 
 Step 4 for the final `72`, at 0.50 under W0, 0.58 under W1, and 0.30 under the reference:
@@ -667,7 +670,7 @@ _One GRPO step: a group of eight answers, two forward passes, the driver groups 
 
 ### Without a reference
 
-With both KL switches off (DAPO, verl's Dr. GRPO recipe), `need_reference_policy` returns `False`, verl never builds the reference worker, step 2 is one pass, and the loss loses its second term:
+With both KL switches off, as in DAPO, `need_reference_policy` returns `False`, verl never builds the reference worker, step 2 is one pass, and the loss loses its second term:
 
 ```python
 # the clip term alone
@@ -688,7 +691,7 @@ Now nothing remembers where training started, and over hundreds of steps the pol
 | GRPO | 3: actor, rollout, reference | 1 |
 | GRPO without a reference | 2: actor, rollout | 1 |
 
-That is the whole reason GRPO took over: the group replaced a network.
+A learned reward model, where the scorer is one, adds one more to each row. That is why GRPO took over: the group replaced a network.
 
 ![Model count: PPO four models with two training, GRPO three with one, GRPO without a reference two](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/model-count.png)
 
@@ -738,9 +741,19 @@ GRPO needs a rule that can check the answer. Is this reply clear? Polite? The su
 
 ## DPO: the policy is the reward model
 
-DPO starts from PPO's objective, reward minus a KL leash, which has a closed-form optimum. Inverted, the reward is beta times the log of policy over reference plus a prompt-only term; in the reward model's pairwise sigmoid that term cancels. What is left: take the policy's log-ratio to the reference for the chosen and the rejected answer, subtract, scale by beta, minimize minus the log-sigmoid.
+DPO starts from PPO's objective, reward minus a KL leash, and gets to a loss with no reward in it in five lines. Here `pi` is the policy, `pi_ref` the frozen reference, `r` the reward, and `beta` how hard the leash pulls (0.1 in the example below):
 
-![The DPO derivation in five lines: the KL-regularized objective, its optimum, the inverted reward, Bradley-Terry, and the loss](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/dpo-derivation.png)
+```text
+objective      maximize  E[r(x, y)] - beta * KL(pi || pi_ref)
+its optimum    pi*(y|x) = pi_ref(y|x) * exp(r(x, y) / beta) / Z(x)
+solve for r    r(x, y) = beta * log(pi*(y|x) / pi_ref(y|x)) + beta * log Z(x)
+preference     P(chosen beats rejected) = sigmoid(r_chosen - r_rejected)
+put 3 in 4     beta * log Z(x) is the same for both answers and cancels
+```
+
+Line 2 says the best policy under a leash is the reference, reweighted toward high-reward answers; `Z` only normalizes, and depends on the prompt alone. Line 3 turns that around: if the policy were optimal, you could read the reward off it. Line 4 is the Bradley-Terry model, the same pairwise sigmoid that trained RLHF's reward model. What is left after line 5: take the policy's log-ratio to the reference for the chosen and the rejected answer, subtract, scale by beta, and minimize minus the log-sigmoid.
+
+![The DPO loss as a code sketch with its symbols named, and the chosen and rejected answers' log-ratios to the reference](/assets/images/rl-primer-rlhf-ppo-grpo-dpo/dpo-derivation.png)
 
 verl core has no DPO trainer. The loss lives in the SPIN recipe of the separate [verl-recipe](https://github.com/verl-project/verl-recipe) repository, with sigmoid and IPO variants ([`spin/core_algos.py:131-158`](https://github.com/verl-project/verl-recipe/blob/21892b92/spin/core_algos.py#L131-L158), trimmed and re-wrapped to fit the page):
 
@@ -769,6 +782,8 @@ def compute_online_dpo_loss(
     ...
     return losses.mean()
 ```
+
+With the defaults (`label_smoothing=0.0`, `loss_type="sigmoid"`) the loss is one line, `-F.logsigmoid(beta * logits)`. The function is called online because the recipe samples its own pairs; the loss is the same for a fixed dataset.
 
 The implicit reward is beta times the log-ratio to the reference: the policy is its own reward model. The gradient raises the chosen answer and lowers the rejected one, weighted by how wrong the implicit reward currently ranks them.
 
